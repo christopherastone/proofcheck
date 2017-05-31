@@ -12,8 +12,8 @@ import category
 
 NP = category.NP
 S = category.S
-VBI = category.mkL(S, NP)
-VBT = category.mkR(VBI, NP)
+VBI = category.SlashCategory(category.LEFT, S, NP)
+VBT = category.SlashCategory(category.RIGHT, VBI, NP)
 
 
 def words(s: str):
@@ -21,19 +21,37 @@ def words(s: str):
     return re.sub(r'[^A-za-z]', ' ', s).lower().split()
 
 
+class Item:
+    def __init__(self, cat, sem, why=None):
+        self.cat = cat
+        self.sem = sem
+        self.why = why
+
+    def __str__(self):
+        semString = self.sem if isinstance(self.sem, str) else "LAM"
+        return f'({self.cat},{semString})'
+
+    def __repr__(self):
+        return f'Item({self.cat!r},{self.sem!r},{self.why!r})'
+
+    def __eq__(self, other):
+        """ignores the why argument, and checks sem for pointer equality"""
+        return self.cat == other.cat and self.sem == other.sem
+
+
 def pn(n):
     """Creates a NP entry for the lexicon, with the given name"""
-    return (NP, n)
+    return Item(NP, n)
 
 
 def intrans(vb):
     """Creates an intransitive-verb entry the lexicon, with the given name"""
-    return (VBI, lambda x: vb + '(' + x + ')')
+    return Item(VBI, lambda x: vb + '(' + x + ')')
 
 
 def trans(vb):
     """Creates a transitive-verb entry the lexicon, with the given name"""
-    return (VBT, lambda y: lambda x: vb + '(' + x + "," + y + ')')
+    return Item(VBT, lambda y: lambda x: vb + '(' + x + "," + y + ')')
 
 
 LEXICON = {'fido': [pn('fido')],
@@ -43,6 +61,8 @@ LEXICON = {'fido': [pn('fido')],
 
 
 def mkChart(wds):
+    """Creates an initial chart for the given words, with just the
+    lexicon information for each word/leaf"""
     chart = {}
     for i in range(len(wds)):
         chart[(i, i)] = LEXICON[wds[i]]
@@ -53,17 +73,21 @@ def fillCell(chart, i, j):
     chart[(i, j)] = []
     # print("chart(",i,',',j,') = ',chart[(i,j)])
     for d in range(j-i):
-        # print(i,",",i+d,"...",i+d+1,",",j)
+        # print(f'combining ({i},{i+d}) with ({i+d+1},{j})')
         cell1 = chart[(i, i + d)]
         cell2 = chart[(i + d + 1, j)]
-        # print(i, d, cell1, cell2)
-        for cat1, sem1 in cell1:
-            for cat2, sem2 in cell2:
-                # print("checking", cat1, cat2)
-                if (category.isR(cat1) and category.dom(cat1) == cat2):
-                    chart[(i, j)] += [(category.cod(cat1), sem1(sem2))]
-                elif (category.isL(cat2) and category.dom(cat2) == cat1):
-                    chart[(i, j)] += [(category.cod(cat2), sem2(sem1))]
+        # print(f'cell1 = {cell1} and cell2 = {cell2}')
+        for item1 in cell1:
+            cat1 = item1.cat
+            sem1 = item1.sem
+            for item2 in cell2:
+                cat2 = item2.cat
+                sem2 = item2.sem
+                # print(f'checking ({cat1},{sem1}) & ({cat2},{sem2})')
+                if (cat1.slash == category.RIGHT and cat1.dom == cat2):
+                    chart[(i, j)] += [Item(cat1.cod, sem1(sem2))]
+                elif (cat2.slash == category.LEFT and cat2.dom == cat1):
+                    chart[(i, j)] += [Item(cat2.cod, sem2(sem1))]
     # print("chart(",i,',',j,') = ',chart[(i,j)])
 
 

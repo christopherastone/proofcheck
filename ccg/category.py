@@ -7,52 +7,71 @@ Created on Tue May 30 14:48:25 2017
 """
 
 
-def mkBase(s: str):
-    return s
+class BaseCategory:
 
-NP = mkBase("NP")
-S = mkBase("S")
+    def __init__(self, nm: str):
+        self.__name = nm
 
+    def __str__(self):
+        return self.__name
 
-def slash(lr, dom, cod):
-    return [lr, dom, cod]
+    def __repr__(self):
+        return f'BaseCategory({self.__name!r})'
 
-LSLASH = '\\'
-RSLASH = '/'
+    def __eq__(self, other):
+        return (isinstance(other, BaseCategory) and
+                self.__name == other.__name)
 
-
-def mkL(cod, dom):
-    return slash(LSLASH, dom, cod)
-
-
-def mkR(cod, dom):
-    return slash(RSLASH, dom, cod)
-
-
-def isL(category):
-    return (isinstance(category, list) and category[0] == LSLASH)
-
-
-def isR(category):
-    return (isinstance(category, list) and category[0] == RSLASH)
-
-
-def sl(category):
-    if isinstance(category, list):
-        return category[0]
-    else:
+    @property
+    def dom(self):
         return None
 
-
-def dom(category):
-    if isinstance(category, list):
-        return category[1]
-    else:
+    @property
+    def cod(self):
         return None
 
-
-def cod(category):
-    if isinstance(category, list):
-        return category[2]
-    else:
+    @property
+    def slash(self):
         return None
+
+NP = BaseCategory("NP")
+S = BaseCategory("S")
+
+LEFT = '\\'
+RIGHT = '/'
+
+
+class SlashCategory:
+
+    def __init__(self, slash, cod, dom, restr=None):
+        self.__slash = slash
+        self.__cod = cod
+        self.__dom = dom
+        self.__restr = {} if restr is None else restr
+
+    def __eq__(self, other):
+        return (isinstance(other, SlashCategory) and
+                (self.__slash == other.__slash) and
+                (self.__cod == other.__cod) and
+                (self.__restr == other.__restr))
+
+    def __repr__(self):
+        return (f'SlashCategory({self.__slash!r},{self.__cod!r},' +
+                f'{self.__dom!r}' +
+                ("" if self.__restr == {} else f',{self.__restr}') +
+                f')')
+
+    def __str__(self):
+        return f'({self.__cod}{self.__slash}{self.__dom})'
+
+    @property
+    def dom(self):
+        return self.__dom
+
+    @property
+    def cod(self):
+        return self.__cod
+
+    @property
+    def slash(self):
+        return self.__slash
