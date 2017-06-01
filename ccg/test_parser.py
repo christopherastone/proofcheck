@@ -18,4 +18,4 @@ def test_words():
 
 def test_parse():
     assert (parser.parse('Fido eats cheese.') ==
-            [parser.Item(category.S, 'eats(fido,cheese)')])
+            [parser.Item(category.S, 'eats(fido)(cheese)')])

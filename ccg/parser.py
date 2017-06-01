@@ -28,7 +28,8 @@ class Item:
         self.why = why
 
     def __str__(self):
-        semString = self.sem if isinstance(self.sem, str) else "LAM"
+        print("cat:", str(self.cat), repr(self.cat))
+        semString = Item.semToString(self.cat, self.sem)
         return f'({self.cat},{semString})'
 
     def __repr__(self):
@@ -38,20 +39,51 @@ class Item:
         """ignores the why argument, and checks sem for pointer equality"""
         return self.cat == other.cat and self.sem == other.sem
 
+    @staticmethod
+    def semToString(cat, sem, vars=['x', 'y', 'z', 'w', 'u', 'v'],
+                    fns=['f', 'g', 'h', 'k']):
+        print(f'semToString:{cat}:{sem}')
+        if isinstance(sem, str):
+            return sem
+        elif isinstance(cat, category.SlashCategory):
+            print(f'cat.dom={cat.dom}')
+            if isinstance(cat.dom, category.SlashCategory):
+                return ('λ' + fns[0] + '.' +
+                        Item.semToString(cat.cod,
+                                         sem(Item.varToSem(fns[0], cat.dom)),
+                                         vars, fns[1:]))
+            else:
+                return ('λ' + vars[0] + '.' +
+                        Item.semToString(cat.cod, sem(vars[0]), vars[1:], fns))
+        else:
+            return f'<BAD SEMANTICS:{cat}:{sem}>'
+
+    @staticmethod
+    def varToSem(x, cat):
+        """eta-expand the given semantics for the given category"""
+        if isinstance(cat, category.SlashCategory):
+            return lambda y: Item.varToSem(x + "(" + y + ")", cat.cod)
+        else:
+            return x
+
+
+def mk(cat, wd):
+    return Item(cat, Item.varToSem(wd, cat))
+
 
 def pn(n):
     """Creates a NP entry for the lexicon, with the given name"""
-    return Item(NP, n)
+    return mk(NP, n)
 
 
 def intrans(vb):
     """Creates an intransitive-verb entry the lexicon, with the given name"""
-    return Item(VBI, lambda x: vb + '(' + x + ')')
+    return mk(VBI, vb)
 
 
 def trans(vb):
     """Creates a transitive-verb entry the lexicon, with the given name"""
-    return Item(VBT, lambda y: lambda x: vb + '(' + x + "," + y + ')')
+    return Item(VBT, lambda y: lambda x: vb + '(' + x + ')(' + y + ')')
 
 
 LEXICON = {'fido': [pn('fido')],
@@ -99,4 +131,5 @@ def parse(sentence):
         for i in range(nwds-tot):
             j = i+tot
             fillCell(chart, i, j)
+    # print(chart)
     return chart[(0, nwds-1)]
