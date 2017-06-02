@@ -9,11 +9,13 @@ Created on Tue May 30 14:13:01 2017
 import re
 
 import category
+import semantics as sem
 
 NP = category.NP
 S = category.S
 VBI = category.SlashCategory(category.LEFT, S, NP)
 VBT = category.SlashCategory(category.RIGHT, VBI, NP)
+MODAL = category.SlashCategory(category.RIGHT, VBI, VBI)
 
 
 def words(s: str):
@@ -29,8 +31,7 @@ class Item:
 
     def __str__(self):
         print("cat:", str(self.cat), repr(self.cat))
-        semString = Item.semToString(self.cat, self.sem)
-        return f'({self.cat},{semString})'
+        return f'({self.cat},{self.sem})'
 
     def __repr__(self):
         return f'Item({self.cat!r},{self.sem!r},{self.why!r})'
@@ -39,32 +40,34 @@ class Item:
         """ignores the why argument, and checks sem for pointer equality"""
         return self.cat == other.cat and self.sem == other.sem
 
-    @staticmethod
-    def semToString(cat, sem, vars=['x', 'y', 'z', 'w', 'u', 'v'],
-                    fns=['f', 'g', 'h', 'k']):
-        # print(f'semToString:{cat}:{sem}')
-        if isinstance(sem, str):
-            return sem
-        elif isinstance(cat, category.SlashCategory):
-            # print(f'cat.dom={cat.dom}')
-            if isinstance(cat.dom, category.SlashCategory):
-                return ('λ' + fns[0] + '.' +
-                        Item.semToString(cat.cod,
-                                         sem(Item.varToSem(fns[0], cat.dom)),
-                                         vars, fns[1:]))
-            else:
-                return ('λ' + vars[0] + '.' +
-                        Item.semToString(cat.cod, sem(vars[0]), vars[1:], fns))
-        else:
-            return f'<BAD SEMANTICS:{cat}:{sem}>'
-
-    @staticmethod
-    def varToSem(x, cat):
-        """eta-expand the given semantics for the given category"""
-        if isinstance(cat, category.SlashCategory):
-            return lambda y: Item.varToSem(x + "(" + y + ")", cat.cod)
-        else:
-            return x
+#==============================================================================
+#     @staticmethod
+#     def semToString(cat, sem, vars=['x', 'y', 'z', 'w', 'u', 'v'],
+#                     fns=['f', 'g', 'h', 'k']):
+#         # print(f'semToString:{cat}:{sem}')
+#         if isinstance(sem, str):
+#             return sem
+#         elif isinstance(cat, category.SlashCategory):
+#             # print(f'cat.dom={cat.dom}')
+#             if isinstance(cat.dom, category.SlashCategory):
+#                 return ('λ' + fns[0] + '.' +
+#                         Item.semToString(cat.cod,
+#                                          sem(Item.varToSem(fns[0], cat.dom)),
+#                                          vars, fns[1:]))
+#             else:
+#                 return ('λ' + vars[0] + '.' +
+#                         Item.semToString(cat.cod, sem(vars[0]), vars[1:], fns))
+#         else:
+#             return f'<BAD SEMANTICS:{cat}:{sem}>'
+# 
+#     @staticmethod
+#     def varToSem(wd, cat):
+#         """eta-expand the given semantics for the given category"""
+#         if isinstance(cat, category.SlashCategory):
+#             return lambda y: Item.varToSem(wd + "(" + y + ")", cat.cod)
+#         else:
+#             return wd
+#==============================================================================
 
     def toStrings(self):
         if isinstance(self.why, str):
@@ -79,7 +82,7 @@ class Item:
         else:
             lines = ["???"]
         lines += [str(self.cat)]
-        lines += [Item.semToString(self.cat, self.sem)]
+        lines += [str(self.sem)]
         return Item.centerlines(lines)
 
     @staticmethod
@@ -113,25 +116,46 @@ def mk(cat, wd):
     return Item(cat, Item.varToSem(wd, cat), wd)
 
 
-def pn(n):
+def pn(wd):
     """Creates a NP entry for the lexicon, with the given name"""
-    return mk(NP, n)
+    return Item(NP, sem.Const(wd), wd)
 
 
 def intrans(vb):
     """Creates an intransitive-verb entry the lexicon, with the given name"""
-    return mk(VBI, vb)
+    return Item(VBI, sem.Const(vb), vb)
 
 
 def trans(vb):
     """Creates a transitive-verb entry the lexicon, with the given name"""
-    return Item(VBT, lambda y: lambda x: vb + '(' + x + ')(' + y + ')', vb)
+    return Item(VBT,
+                sem.Lam("y",
+                        sem.Lam("x",
+                                sem.App(sem.App(sem.Const(vb),
+                                                sem.BoundVar(0)),
+                                        sem.BoundVar(1)))),
+                vb)
+
+
+def modal(wd):
+    return Item(MODAL,
+                sem.Lam("f", 
+                        sem.Lam("x", 
+                                sem.App(sem.Const(wd),
+                                        sem.App(sem.BoundVar(1),
+                                                sem.BoundVar(0))))),
+                wd)
 
 
 LEXICON = {'fido': [pn('fido')],
            'cheese': [pn('cheese')],
            'barks': [intrans('barks')],
-           'eats': [intrans('eats'), trans('eats')]}
+           'eats': [intrans('eats'), trans('eats')],
+           'eat': [intrans('eat'), trans('eat')],
+           'brazil': [pn('brazil')],
+           'defeated': [trans('defeated')],
+           'germany': [pn('germany')],
+           'will': [modal('will')]}   # baldridge p. 24-25
 
 
 def mkChart(wds):
@@ -159,11 +183,24 @@ def fillCell(chart, i, j):
                 sem2 = item2.sem
                 # print(f'checking ({cat1},{sem1}) & ({cat2},{sem2})')
                 if (cat1.slash == category.RIGHT and cat1.dom == cat2):
-                    chart[(i, j)] += [Item(cat1.cod, sem1(sem2),
+                    chart[(i, j)] += [Item(cat1.cod,
+                                           sem.App(sem1, sem2).reduce(),
                                            ['>', item1, item2])]
-                elif (cat2.slash == category.LEFT and cat2.dom == cat1):
-                    chart[(i, j)] += [Item(cat2.cod, sem2(sem1),
+                if (cat2.slash == category.LEFT and cat2.dom == cat1):
+                    chart[(i, j)] += [Item(cat2.cod, 
+                                           sem.App(sem2, sem1).reduce(),
                                            ['<', item1, item2])]
+                if (cat1.slash == category.RIGHT and
+                    cat2.slash == category.RIGHT and
+                        cat1.dom == cat2.cod):
+                    chart[(i, j)] += (
+                        [Item(category.SlashCategory(category.RIGHT,
+                                                     cat1.cod, cat2.dom),
+                              sem.Lam("z",
+                                      sem.App(sem1,
+                                              sem.App(sem2, 
+                                                      sem.BoundVar(0))).reduce()),
+                              ['>B', item1, item2])])
     # print("chart(",i,',',j,') = ',chart[(i,j)])
 
 
@@ -182,5 +219,11 @@ def parse(sentence):
 def p(sentence):
     items = parse(sentence)
     for item in items:
+        print()
         item.display()
         print()
+
+# p('fido barks')
+# p('fido eats cheese')
+# p('will eat')
+# p('fido will eat cheese')
