@@ -42,11 +42,11 @@ class Item:
     @staticmethod
     def semToString(cat, sem, vars=['x', 'y', 'z', 'w', 'u', 'v'],
                     fns=['f', 'g', 'h', 'k']):
-        print(f'semToString:{cat}:{sem}')
+        # print(f'semToString:{cat}:{sem}')
         if isinstance(sem, str):
             return sem
         elif isinstance(cat, category.SlashCategory):
-            print(f'cat.dom={cat.dom}')
+            # print(f'cat.dom={cat.dom}')
             if isinstance(cat.dom, category.SlashCategory):
                 return ('λ' + fns[0] + '.' +
                         Item.semToString(cat.cod,
@@ -66,9 +66,51 @@ class Item:
         else:
             return x
 
+    def toStrings(self):
+        if isinstance(self.why, str):
+            lines = [self.why]
+        elif isinstance(self.why, list):
+            reason = self.why[0]
+            extra = 1+len(reason)
+            leftLines = self.why[1].toStrings()
+            rightLines = self.why[2].toStrings() if len(self.why) >= 2 else []
+            lines = Item.mergeLines(leftLines, rightLines, extra)
+            lines += ['-' * (len(lines[0])-extra) + ' ' + reason]
+        else:
+            lines = ["???"]
+        lines += [str(self.cat)]
+        lines += [Item.semToString(self.cat, self.sem)]
+        return Item.centerlines(lines)
+
+    @staticmethod
+    def centerlines(lines):
+        width = max(len(l) for l in lines)
+        return [' ' * ((width-len(l)) // 2) + l + ' ' * ((width+1-len(l)) // 2)
+                for l in lines]
+
+    @staticmethod
+    def mergeLines(lines1, lines2, extra=0):
+        len1 = len(lines1)
+        wid1 = len(lines1[0])
+        len2 = len(lines2)
+        wid2 = len(lines2[0])
+        minlen = min(len1, len2)
+        rmargin = ' ' * extra
+        part1 = [lines1[i] + '  ' + lines2[i] + rmargin
+                 for i in range(minlen)]
+        part2 = [' ' * (wid1+2) + lines2[i] + rmargin
+                 for i in range(minlen, len2)]
+        part3 = [lines1[i] + '  ' * (wid2+2) + rmargin
+                 for i in range(minlen, len1)]
+        return part1 + part2 + part3
+
+    def display(self):
+        for l in self.toStrings():
+            print(l)
+
 
 def mk(cat, wd):
-    return Item(cat, Item.varToSem(wd, cat))
+    return Item(cat, Item.varToSem(wd, cat), wd)
 
 
 def pn(n):
@@ -83,7 +125,7 @@ def intrans(vb):
 
 def trans(vb):
     """Creates a transitive-verb entry the lexicon, with the given name"""
-    return Item(VBT, lambda y: lambda x: vb + '(' + x + ')(' + y + ')')
+    return Item(VBT, lambda y: lambda x: vb + '(' + x + ')(' + y + ')', vb)
 
 
 LEXICON = {'fido': [pn('fido')],
@@ -117,9 +159,11 @@ def fillCell(chart, i, j):
                 sem2 = item2.sem
                 # print(f'checking ({cat1},{sem1}) & ({cat2},{sem2})')
                 if (cat1.slash == category.RIGHT and cat1.dom == cat2):
-                    chart[(i, j)] += [Item(cat1.cod, sem1(sem2))]
+                    chart[(i, j)] += [Item(cat1.cod, sem1(sem2),
+                                           ['>', item1, item2])]
                 elif (cat2.slash == category.LEFT and cat2.dom == cat1):
-                    chart[(i, j)] += [Item(cat2.cod, sem2(sem1))]
+                    chart[(i, j)] += [Item(cat2.cod, sem2(sem1),
+                                           ['<', item1, item2])]
     # print("chart(",i,',',j,') = ',chart[(i,j)])
 
 
@@ -133,3 +177,10 @@ def parse(sentence):
             fillCell(chart, i, j)
     # print(chart)
     return chart[(0, nwds-1)]
+
+
+def p(sentence):
+    items = parse(sentence)
+    for item in items:
+        item.display()
+        print()
