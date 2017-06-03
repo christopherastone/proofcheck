@@ -40,35 +40,6 @@ class Item:
         """ignores the why argument, and checks sem for pointer equality"""
         return self.cat == other.cat and self.sem == other.sem
 
-#==============================================================================
-#     @staticmethod
-#     def semToString(cat, sem, vars=['x', 'y', 'z', 'w', 'u', 'v'],
-#                     fns=['f', 'g', 'h', 'k']):
-#         # print(f'semToString:{cat}:{sem}')
-#         if isinstance(sem, str):
-#             return sem
-#         elif isinstance(cat, category.SlashCategory):
-#             # print(f'cat.dom={cat.dom}')
-#             if isinstance(cat.dom, category.SlashCategory):
-#                 return ('λ' + fns[0] + '.' +
-#                         Item.semToString(cat.cod,
-#                                          sem(Item.varToSem(fns[0], cat.dom)),
-#                                          vars, fns[1:]))
-#             else:
-#                 return ('λ' + vars[0] + '.' +
-#                         Item.semToString(cat.cod, sem(vars[0]), vars[1:], fns))
-#         else:
-#             return f'<BAD SEMANTICS:{cat}:{sem}>'
-# 
-#     @staticmethod
-#     def varToSem(wd, cat):
-#         """eta-expand the given semantics for the given category"""
-#         if isinstance(cat, category.SlashCategory):
-#             return lambda y: Item.varToSem(wd + "(" + y + ")", cat.cod)
-#         else:
-#             return wd
-#==============================================================================
-
     def toStrings(self):
         if isinstance(self.why, str):
             lines = [self.why]
@@ -110,10 +81,6 @@ class Item:
     def display(self):
         for l in self.toStrings():
             print(l)
-
-
-def mk(cat, wd):
-    return Item(cat, Item.varToSem(wd, cat), wd)
 
 
 def pn(wd):
