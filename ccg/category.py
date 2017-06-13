@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 """
 Created on Tue May 30 14:48:25 2017
 
@@ -33,6 +34,7 @@ class BaseCategory:
     @property
     def slash(self):
         return None
+
 
 NP = BaseCategory("NP")
 S = BaseCategory("S")

@@ -29,7 +29,7 @@ class Const:
 
     def subst(self, k, e):
         return self
-    
+
     def reduce(self):
         return self
 
@@ -162,6 +162,3 @@ def test_beta():
     assert Const("c") != Const("d")
     assert Lam("x", BoundVar(0)) != Lam("x", Const("x"))
     assert BoundVar(0) != BoundVar(1)
-
-
-    
