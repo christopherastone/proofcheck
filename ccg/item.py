@@ -22,7 +22,9 @@ class Item:
             reason = self.why[0]
             extra = 1+len(reason)
             leftLines = self.why[1].toStrings()
+            # leftLines = Item.centerlines(leftlines)
             rightLines = self.why[2].toStrings() if len(self.why) >= 2 else []
+            # rightLines = Item.centerlines(rightLines)
             lines = Item.mergeLines(leftLines, rightLines, extra)
             lines += ['-' * (len(lines[0])-extra) + ' ' + reason]
         else:
@@ -49,7 +51,7 @@ class Item:
                  for i in range(minlen)]
         part2 = [' ' * (wid1+2) + lines2[i] + rmargin
                  for i in range(minlen, len2)]
-        part3 = [lines1[i] + '  ' * (wid2+2) + rmargin
+        part3 = [lines1[i] + ' ' * (wid2+2) + rmargin
                  for i in range(minlen, len1)]
         return part1 + part2 + part3
 
