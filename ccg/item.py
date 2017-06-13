@@ -5,7 +5,6 @@ class Item:
         self.why = why
 
     def __str__(self):
-        print("cat:", str(self.cat), repr(self.cat))
         return f'({self.cat},{self.sem})'
 
     def __repr__(self):

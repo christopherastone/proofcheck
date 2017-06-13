@@ -11,9 +11,14 @@ def deconstruct(item1, item2):
     return (item1.cat, item1.sem, item2.cat, item2.sem)
 
 
+normalize = True
+
+
 def ForwardApplication(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
-    if (cat1.slash == category.RIGHT and cat1.dom == cat2):
+    if (cat1.slash == category.RIGHT and cat1.dom == cat2 and
+            # XXX: overly specific - won't extend to generalized composition
+            (not normalize or (item1.why[0] != '>' and item1.why[0] != '>B'))):
         dest += [Item(cat1.cod,
                       semantics.App(sem1, sem2).reduce(),
                       ['>', item1, item2])]
