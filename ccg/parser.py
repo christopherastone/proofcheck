@@ -17,8 +17,8 @@ from item import Item
 NP = category.NP
 S = category.S
 VBI = category.VBI
-VBT = category.SlashCategory(category.RIGHT, VBI, NP)
-MODAL = category.SlashCategory(category.RIGHT, VBI, VBI)
+VBT = category.VBT
+MODAL = category.MODAL
 
 
 def words(s: str):

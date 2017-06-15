@@ -20,7 +20,9 @@ def forward_application(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
     if (cat1.slash == category.RIGHT and cat1.dom == cat2 and
             # XXX: overly specific - won't extend to generalized composition
-            (not normalize or (item1.why[0] != '>' and item1.why[0] != '>B'))):
+            (not normalize or (item1.why[0] != '>' and 
+                               (not item1.why[0].startswith('>B')) and
+                               item1.why[0] != '>T'))):
         dest += [Item(cat1.cod,
                       semantics.App(sem1, sem2).reduce(),
                       ['>', item1, item2])]
@@ -28,7 +30,10 @@ def forward_application(item1, item2, dest):
 
 def backward_application(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
-    if (cat2.slash == category.LEFT and cat2.dom == cat1):
+    if (cat2.slash == category.LEFT and cat2.dom == cat1 and
+            (not normalize or (item2.why[0] != '<' and
+                               (not item2.why[0].startswith('<B')) and
+                               item2.why[0] != '<T'))):
         dest += [Item(cat2.cod,
                       semantics.App(sem2, sem1).reduce(),
                       ['<', item1, item2])]
@@ -65,20 +70,62 @@ def typeraise_right(T, item):
                                         item.sem.shift(1))),
             ['>T', item])
 
+def typeraise_left(T, item):
+    return Item(
+            category.SlashCategory(
+                category.LEFT, T,
+                category.SlashCategory(category.RIGHT, T, item.cat)),
+            semantics.Lam(semantics.gensym(),
+                          semantics.App(semantics.BoundVar(0),
+                                        item.sem.shift(1))),
+            ['<T', item])
+
 
 def typeraise_easyccg(item, dest):
     """Lewis and Steedman, A* CCG Parsing with a Supertag-factored Model
        lists 3 specific instances of type raising used in EasyCCG, namely
-              NP   ->    S / (S\\NP)
-              NP   ->    (S\\NP) / ((S\\NP)\\NP)
-              PP   ->    (S\\NP) / ((S\\NP)\\PP)
+            NP   ->    S / (S\\NP)
+            NP   ->    (S\\NP) / ((S\\NP)\\NP)
+            PP   ->    (S\\NP) / ((S\\NP)\\PP)
+       but the github implementation seems to say
+            NP   ->    S[X] / (S[X]\\NP)
+            NP   ->    (S[X]\\NP) \\ ((S[X]\\NP)/NP)
+            PP   ->    (S[X]\\NP) \\ ((S[X]\\NP)/PP)
+       which (a) is more general, and (b) has slashes the other direction
+       for the last two rules. [Curren and Clark use rules with slashes
+       in the same direction as the implementation, so the paper is
+       probably a typo.]
+       We compromise by using the un-generalized rules, but with
+       slashes in the C&C/github direction.
     """
     if item.cat == category.NP:
         dest += [typeraise_right(category.S, item),
-                 typeraise_right(category.VBI, item)]
+                 typeraise_left(category.VBI, item)]
 
     elif item.cat == category.PP:
-        dest += [typeraise_right(category.VBI, item)]
+        dest += [typeraise_left(category.VBI, item)]
+
+
+def typeraise_candc(item, dest):
+    """Taken from Appendix A (p542) of Clark and Curran, 2007."""
+    if item.cat == category.NP:
+        dest += [typeraise_right(category.S, item),
+                 typeraise_left(category.VBI, item),
+                 typeraise_left(category.VBT, item),
+                 typeraise_left(
+                     # NP -> ((S\NP)/PP) \ ( ((S\NP)/PP) / NP )
+                     category.SlashCategory(
+                         category.RIGHT, category.VBI, category.PP), item),
+                 # TODO: Add these when it's time
+                 # typeraise_left((S\NP)/(S[to]\NP), item)
+                 # typeraise_left((S\NP)/(S[adj]\NP), item)
+                 ]
+    elif item.cat == category.PP:
+        dest += [typeraise_left(category.VBI, item)]
+
+    # TODO: Add these when it's time
+    # elif item.cat == (S[adj]\NP):
+    #   dest += [typeraise_left(category.VBI, item)]
 
 
 def compose_constraint_violation(item1, item2, n, dir='>'):
@@ -316,6 +363,6 @@ parsingRules = [[],
                  forward_composition]]
 """
 
-parsingRules = [[typeraise_easyccg],
+parsingRules = [[typeraise_candc],
                 [backward_application,
                  generalized_forward_composition]]
