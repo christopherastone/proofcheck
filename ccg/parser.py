@@ -16,7 +16,7 @@ from item import Item
 
 NP = category.NP
 S = category.S
-VBI = category.SlashCategory(category.LEFT, S, NP)
+VBI = category.VBI
 VBT = category.SlashCategory(category.RIGHT, VBI, NP)
 MODAL = category.SlashCategory(category.RIGHT, VBI, VBI)
 
@@ -39,8 +39,8 @@ def intrans(vb):
 def trans(vb):
     """Creates a transitive-verb entry the lexicon, with the given name"""
     return Item(VBT,
-                sem.Lam("y",
-                        sem.Lam("x",
+                sem.Lam(sem.gensym("y"),
+                        sem.Lam(sem.gensym("x"),
                                 sem.App(sem.App(sem.Const(vb),
                                                 sem.BoundVar(0)),
                                         sem.BoundVar(1)))),
@@ -49,8 +49,8 @@ def trans(vb):
 
 def modal(wd):
     return Item(MODAL,
-                sem.Lam("f",
-                        sem.Lam("x",
+                sem.Lam(sem.gensym("f"),
+                        sem.Lam(sem.gensym("x"),
                                 sem.App(sem.Const(wd),
                                         sem.App(sem.BoundVar(1),
                                                 sem.BoundVar(0))))),
@@ -75,13 +75,17 @@ def mkChart(wds):
     lexicon information for each word/leaf"""
     chart = {}
     for i in range(len(wds)):
-        chart[(i, i)] = LEXICON[wds[i]]
+        # We clone the lexicon list because unary promotion rules can
+        # add new items to single-word lists, but we don't want to
+        # permanently change the static dictionary.
+        chart[(i, i)] = LEXICON[wds[i]][:]
     return chart
 
 
-def fillCell(chart, i, j, rules=rules.baldridgeRules):
-    chart[(i, j)] = []
-    # print("chart(",i,',',j,') = ',chart[(i,j)])
+def fillCell(chart, i, j, rules=rules.parsingRules):
+    if (i, j) not in chart:
+        chart[(i, j)] = []
+    # print(f'chart[({i},{j})] = {[str(i) for i in chart[(i,j)]]} (1)')
     for d in range(j-i):
         # print(f'combining ({i},{i+d}) with ({i+d+1},{j})')
         cell1 = chart[(i, i + d)]
@@ -92,14 +96,20 @@ def fillCell(chart, i, j, rules=rules.baldridgeRules):
                 # print(f'checking ({cat1},{sem1}) & ({cat2},{sem2})')
                 for binaryRule in rules[1]:
                     binaryRule(item1, item2, chart[(i, j)])
-    # print("chart(",i,',',j,') = ',chart[(i,j)])
+    # print(f'chart[({i},{j})] = {[str(i) for i in chart[(i,j)]]} (2)')
+    for item in chart[(i, j)][:]:
+        for unaryRule in rules[0]:
+            # print(f'considering {item} for unary rule {unaryRule}')
+            unaryRule(item, chart[(i, j)])
+    # print(f'chart[({i},{j})] = {[str(i) for i in chart[(i,j)]]} (3)')
 
 
 def parse(sentence):
     wds = words(sentence)
     nwds = len(wds)
     chart = mkChart(wds)
-    for tot in range(1, nwds):
+    # print(f'starting chart = {chart}')
+    for tot in range(0, nwds):
         for i in range(nwds-tot):
             j = i+tot
             fillCell(chart, i, j)

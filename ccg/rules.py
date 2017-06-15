@@ -9,7 +9,6 @@ import semantics
 from item import Item
 
 
-
 def deconstruct(item1, item2):
     return (item1.cat, item1.sem, item2.cat, item2.sem)
 
@@ -17,7 +16,7 @@ def deconstruct(item1, item2):
 normalize = True
 
 
-def ForwardApplication(item1, item2, dest):
+def forward_application(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
     if (cat1.slash == category.RIGHT and cat1.dom == cat2 and
             # XXX: overly specific - won't extend to generalized composition
@@ -27,7 +26,7 @@ def ForwardApplication(item1, item2, dest):
                       ['>', item1, item2])]
 
 
-def BackwardApplication(item1, item2, dest):
+def backward_application(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
     if (cat2.slash == category.LEFT and cat2.dom == cat1):
         dest += [Item(cat2.cod,
@@ -35,7 +34,7 @@ def BackwardApplication(item1, item2, dest):
                       ['<', item1, item2])]
 
 
-def ForwardComposition(item1, item2, dest):
+def forward_composition(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
     if (cat1.slash == category.RIGHT and
         cat2.slash == category.RIGHT and
@@ -55,24 +54,35 @@ def ForwardComposition(item1, item2, dest):
 
 c_arg = [category.NP, category.S, category.VBI]
 
-"""
-def TypeRaise(item, dest):
-    cat = item.cat
-    sem = item.sem
-    if cat in c_arg:
-        dest += [
-            Item(category.SlashCategory(
-                category.Right, 
-                category.SlashCategory(
-                    category.LEFT,
-                    cat, 
-                category.
-                
-        )
-"""
 
-def NFConstraintViolation(item1, item2, n, dir='>'):
-    # Hockenmaier and Bisk NF Constraint 1:  
+def typeraise_right(T, item):
+    return Item(
+            category.SlashCategory(
+                category.RIGHT, T,
+                category.SlashCategory(category.LEFT, T, item.cat)),
+            semantics.Lam(semantics.gensym(),
+                          semantics.App(semantics.BoundVar(0),
+                                        item.sem.shift(1))),
+            ['>T', item])
+
+
+def typeraise_easyccg(item, dest):
+    """Lewis and Steedman, A* CCG Parsing with a Supertag-factored Model
+       lists 3 specific instances of type raising used in EasyCCG, namely
+              NP   ->    S / (S\\NP)
+              NP   ->    (S\\NP) / ((S\\NP)\\NP)
+              PP   ->    (S\\NP) / ((S\\NP)\\PP)
+    """
+    if item.cat == category.NP:
+        dest += [typeraise_right(category.S, item),
+                 typeraise_right(category.VBI, item)]
+
+    elif item.cat == category.PP:
+        dest += [typeraise_right(category.VBI, item)]
+
+
+def compose_constraint_violation(item1, item2, n, dir='>'):
+    # Hockenmaier and Bisk NF Constraint 1:
     # Forbid
     #   X/A  A/Y[1..k]/C
     #   -------------- >B(k+1)
@@ -81,7 +91,7 @@ def NFConstraintViolation(item1, item2, n, dir='>'):
     #          X/Y[1..k]
     #
     # and
-    # 
+    #
     #   X/A  A/Y[1..k]/C
     #   -------------- >B(k+1)
     #      X/Y[1..k]/C            C/D
@@ -128,10 +138,28 @@ def NFConstraintViolation(item1, item2, n, dir='>'):
             int(item2.why[0][2:]) < n):
         return True
 
+    # Hockenmaier and Bisk NF Constraint 4:
+    #    TODO
+
+    # Hockenmaier and Bisk NF Constraint 5:
+    # Forbid
+    #       X
+    #    ------- >T
+    #    A/(A\X)            (A\X)
+    #    ------------------------ >
+    #               A
+    # because we could have just the single step
+    #     X     (A\X)
+    #    ------------- >
+    #         A
+    if (n == 0):
+        if item1.why and item1.why[0] == dir+'T':
+            return True
+
     return False
 
 
-def GeneralizedForwardComposition(item1, item2, dest):
+def generalized_forward_composition(item1, item2, dest):
     # print(f'GeneralizedForwardcomposition: {item1}, {item2}')
 
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
@@ -143,16 +171,16 @@ def GeneralizedForwardComposition(item1, item2, dest):
         return
 
     zs = []
-    rightCat = cat2
+    right_cat = cat2
     # print(f'looking for {cat1.dom}')
-    while (rightCat != cat1.dom):
-        # print(f'loop: rightCat = {rightCat}')
-        if rightCat.slash != category.RIGHT:
+    while (right_cat != cat1.dom):
+        # print(f'loop: right_cat = {right_cat}')
+        if right_cat.slash != category.RIGHT:
             # we haven't found Y, and we've run out of
             # Z's to pull off
             return
-        zs.append(rightCat.dom)
-        rightCat = rightCat.cod
+        zs.append(right_cat.dom)
+        right_cat = right_cat.cod
 
     # Success... if we've gotten this far, the rule applies
     # But zs currently contains Zk, ..., Z2, Z1, so we need to reverse
@@ -160,7 +188,7 @@ def GeneralizedForwardComposition(item1, item2, dest):
     nargs = len(zs)
     # print(f'woohoo. zs = {zs}')
 
-    if NFConstraintViolation(item1, item2, nargs, '>'):
+    if compose_constraint_violation(item1, item2, nargs, '>'):
         return
 
     # The output category will be (X/Z1)/.../Zn
@@ -174,7 +202,7 @@ def GeneralizedForwardComposition(item1, item2, dest):
     # build f's argument.
     outsem = functools.reduce(
                 semantics.App,
-                [sem2] + [semantics.BoundVar(k) 
+                [sem2] + [semantics.BoundVar(k)
                           for k in reversed(range(nargs))])
 
     # apply f
@@ -193,13 +221,15 @@ def GeneralizedForwardComposition(item1, item2, dest):
 
 def dofwdcompose(cat1, cat2):
     out = []
-    GeneralizedForwardComposition(Item(cat1, semantics.Const("f"), None),
-                                  Item(cat2, semantics.Const("g"), None),
-                                  out)
+    generalized_forward_composition(Item(cat1, semantics.Const("f"), None),
+                                    Item(cat2, semantics.Const("g"), None),
+                                    out)
     return out
 
 
+###############################################
 # TESTING SUPPORT
+###############################################
 
 # NP/S
 np_s = category.SlashCategory(category.RIGHT, category.NP, category.S)
@@ -213,7 +243,7 @@ s_np_s_np = category.SlashCategory(category.RIGHT, s_np_s, category.NP)
 s_np__s_np = category.SlashCategory(category.RIGHT, s_np, s_np)
 
 
-def test_GeneralizedForwardComposition():
+def test_gfc():
     oldcounter = semantics.counter
 
     semantics.counter = 0
@@ -255,7 +285,6 @@ def test_GeneralizedForwardComposition():
     assert str(ans6[0].sem) == 'λx0.f(g(x0))'
     assert ans6[0].why[0] == '>B1'
 
-
     semantics.counter = 0
     ans7 = dofwdcompose(s_np__s_np, s_np_s_np)
     assert len(ans7) == 1
@@ -279,14 +308,14 @@ def test_GeneralizedForwardComposition():
 
     semantics.counter = oldcounter
 
+
 """
-baldridgeRules = [[],
-                  [ForwardApplication,
-                   BackwardApplication,
-                   ForwardComposition]]
+parsingRules = [[],
+                [forward_application,
+                 backward_application,
+                 forward_composition]]
 """
 
-baldridgeRules = [[],
-                  [BackwardApplication,
-                   GeneralizedForwardComposition]]
-
+parsingRules = [[typeraise_easyccg],
+                [backward_application,
+                 generalized_forward_composition]]

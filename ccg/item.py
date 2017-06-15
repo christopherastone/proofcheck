@@ -22,7 +22,7 @@ class Item:
             extra = 1+len(reason)
             leftLines = self.why[1].toStrings()
             # leftLines = Item.centerlines(leftlines)
-            rightLines = self.why[2].toStrings() if len(self.why) >= 2 else []
+            rightLines = self.why[2].toStrings() if len(self.why) >= 3 else []
             # rightLines = Item.centerlines(rightLines)
             lines = Item.mergeLines(leftLines, rightLines, extra)
             lines += ['-' * (len(lines[0])-extra) + ' ' + reason]
@@ -41,9 +41,9 @@ class Item:
     @staticmethod
     def mergeLines(lines1, lines2, extra=0):
         len1 = len(lines1)
-        wid1 = len(lines1[0])
+        wid1 = len(lines1[0]) if len1 > 0 else 0
         len2 = len(lines2)
-        wid2 = len(lines2[0])
+        wid2 = len(lines2[0]) if len2 > 0 else 0
         minlen = min(len1, len2)
         rmargin = ' ' * extra
         part1 = [lines1[i] + '  ' + lines2[i] + rmargin

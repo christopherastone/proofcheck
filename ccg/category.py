@@ -75,6 +75,17 @@ class SlashCategory:
 LEFT = '\\'
 RIGHT = '/'
 
+
+def invert(dir):
+    """return the opposite of the given direction"""
+    if dir == LEFT:
+        return RIGHT
+    if dir == RIGHT:
+        return LEFT
+    raise ValueError(f'bad direction {dir}')
+
+
 NP = BaseCategory("NP")
 S = BaseCategory("S")
+PP = BaseCategory("PP")
 VBI = SlashCategory(LEFT, S, NP)

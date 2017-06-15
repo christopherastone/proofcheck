@@ -4,99 +4,126 @@
 !_TAG_PROGRAM_NAME	Exuberant Ctags	//
 !_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
 !_TAG_PROGRAM_VERSION	5.8	//
-App	../semantics.py	/^class App:$/;"	kind:class	line:77
+App	../semantics.py	/^class App:$/;"	kind:class	line:87
 BaseCategory	../category.py	/^class BaseCategory:$/;"	kind:class	line:11
-BoundVar	../semantics.py	/^class BoundVar:$/;"	kind:class	line:37
-Const	../semantics.py	/^class Const:$/;"	kind:class	line:10
-Item	../parser.py	/^class Item:$/;"	kind:class	line:26
-LEFT	../category.py	/^LEFT = '\\\\'$/;"	kind:variable	line:41
-LEXICON	../parser.py	/^LEXICON = {'fido': [pn('fido')],$/;"	kind:variable	line:117
-Lam	../semantics.py	/^class Lam:$/;"	kind:class	line:121
-MODAL	../parser.py	/^MODAL = category.SlashCategory(category.RIGHT, VBI, VBI)$/;"	kind:variable	line:18
-NP	../category.py	/^NP = BaseCategory("NP")$/;"	kind:variable	line:38
-NP	../parser.py	/^NP = category.NP$/;"	kind:variable	line:14
-RIGHT	../category.py	/^RIGHT = '\/'$/;"	kind:variable	line:42
-S	../category.py	/^S = BaseCategory("S")$/;"	kind:variable	line:39
-S	../parser.py	/^S = category.S$/;"	kind:variable	line:15
-SlashCategory	../category.py	/^class SlashCategory:$/;"	kind:class	line:45
-VBI	../parser.py	/^VBI = category.SlashCategory(category.LEFT, S, NP)$/;"	kind:variable	line:16
-VBT	../parser.py	/^VBT = category.SlashCategory(category.RIGHT, VBI, NP)$/;"	kind:variable	line:17
+BoundVar	../semantics.py	/^class BoundVar:$/;"	kind:class	line:47
+Const	../semantics.py	/^class Const:$/;"	kind:class	line:20
+Item	../item.py	/^class Item:$/;"	kind:class	line:1
+Item	../parser.py	/^from item import Item$/;"	kind:namespace	line:15
+Item	../rules.py	/^from item import Item$/;"	kind:namespace	line:9
+LEFT	../category.py	/^LEFT = '\\\\'$/;"	kind:variable	line:75
+LEXICON	../parser.py	/^LEXICON = {'fido': [pn('fido')],$/;"	kind:variable	line:60
+Lam	../semantics.py	/^class Lam:$/;"	kind:class	line:131
+MODAL	../parser.py	/^MODAL = category.SlashCategory(category.RIGHT, VBI, VBI)$/;"	kind:variable	line:21
+NP	../category.py	/^NP = BaseCategory("NP")$/;"	kind:variable	line:78
+NP	../parser.py	/^NP = category.NP$/;"	kind:variable	line:17
+RIGHT	../category.py	/^RIGHT = '\/'$/;"	kind:variable	line:76
+S	../category.py	/^S = BaseCategory("S")$/;"	kind:variable	line:79
+S	../parser.py	/^S = category.S$/;"	kind:variable	line:18
+SlashCategory	../category.py	/^class SlashCategory:$/;"	kind:class	line:39
+VBI	../category.py	/^VBI = SlashCategory(LEFT, S, NP)$/;"	kind:variable	line:80
+VBI	../parser.py	/^VBI = category.VBI$/;"	kind:variable	line:19
+VBT	../parser.py	/^VBT = category.SlashCategory(category.RIGHT, VBI, NP)$/;"	kind:variable	line:20
 __eq__	../category.py	/^    def __eq__(self, other):$/;"	kind:member	line:22
-__eq__	../category.py	/^    def __eq__(self, other):$/;"	kind:member	line:53
-__eq__	../parser.py	/^    def __eq__(self, other):$/;"	kind:member	line:39
-__eq__	../semantics.py	/^    def __eq__(self, other):$/;"	kind:member	line:136
-__eq__	../semantics.py	/^    def __eq__(self, other):$/;"	kind:member	line:23
-__eq__	../semantics.py	/^    def __eq__(self, other):$/;"	kind:member	line:53
-__eq__	../semantics.py	/^    def __eq__(self, other):$/;"	kind:member	line:94
+__eq__	../category.py	/^    def __eq__(self, other):$/;"	kind:member	line:47
+__eq__	../item.py	/^    def __eq__(self, other):$/;"	kind:member	line:13
+__eq__	../semantics.py	/^    def __eq__(self, other):$/;"	kind:member	line:104
+__eq__	../semantics.py	/^    def __eq__(self, other):$/;"	kind:member	line:146
+__eq__	../semantics.py	/^    def __eq__(self, other):$/;"	kind:member	line:33
+__eq__	../semantics.py	/^    def __eq__(self, other):$/;"	kind:member	line:63
 __init__	../category.py	/^    def __init__(self, nm: str):$/;"	kind:member	line:13
-__init__	../category.py	/^    def __init__(self, slash, cod, dom, restr=None):$/;"	kind:member	line:47
-__init__	../parser.py	/^    def __init__(self, cat, sem, why=None):$/;"	kind:member	line:27
-__init__	../semantics.py	/^    def __init__(self, hint, body):$/;"	kind:member	line:122
-__init__	../semantics.py	/^    def __init__(self, left, right):$/;"	kind:member	line:78
-__init__	../semantics.py	/^    def __init__(self, n):$/;"	kind:member	line:38
-__init__	../semantics.py	/^    def __init__(self, nm: str):$/;"	kind:member	line:11
+__init__	../category.py	/^    def __init__(self, slash, cod, dom, restr=None):$/;"	kind:member	line:41
+__init__	../item.py	/^    def __init__(self, cat, sem, why=None):$/;"	kind:member	line:2
+__init__	../semantics.py	/^    def __init__(self, hint, body):$/;"	kind:member	line:132
+__init__	../semantics.py	/^    def __init__(self, left, right):$/;"	kind:member	line:88
+__init__	../semantics.py	/^    def __init__(self, n):$/;"	kind:member	line:48
+__init__	../semantics.py	/^    def __init__(self, nm: str):$/;"	kind:member	line:21
 __repr__	../category.py	/^    def __repr__(self):$/;"	kind:member	line:19
-__repr__	../category.py	/^    def __repr__(self):$/;"	kind:member	line:59
-__repr__	../parser.py	/^    def __repr__(self):$/;"	kind:member	line:36
-__repr__	../semantics.py	/^    def __repr__(self):$/;"	kind:member	line:133
-__repr__	../semantics.py	/^    def __repr__(self):$/;"	kind:member	line:20
-__repr__	../semantics.py	/^    def __repr__(self):$/;"	kind:member	line:50
-__repr__	../semantics.py	/^    def __repr__(self):$/;"	kind:member	line:91
+__repr__	../category.py	/^    def __repr__(self):$/;"	kind:member	line:53
+__repr__	../item.py	/^    def __repr__(self):$/;"	kind:member	line:10
+__repr__	../semantics.py	/^    def __repr__(self):$/;"	kind:member	line:101
+__repr__	../semantics.py	/^    def __repr__(self):$/;"	kind:member	line:143
+__repr__	../semantics.py	/^    def __repr__(self):$/;"	kind:member	line:30
+__repr__	../semantics.py	/^    def __repr__(self):$/;"	kind:member	line:60
 __str__	../category.py	/^    def __str__(self):$/;"	kind:member	line:16
-__str__	../category.py	/^    def __str__(self):$/;"	kind:member	line:65
-__str__	../parser.py	/^    def __str__(self):$/;"	kind:member	line:32
-__str__	../semantics.py	/^    def __str__(self):$/;"	kind:member	line:130
-__str__	../semantics.py	/^    def __str__(self):$/;"	kind:member	line:17
-__str__	../semantics.py	/^    def __str__(self):$/;"	kind:member	line:47
-__str__	../semantics.py	/^    def __str__(self):$/;"	kind:member	line:88
-beta	../semantics.py	/^def beta(body, arg):$/;"	kind:function	line:73
-body	../semantics.py	/^    def body(self):$/;"	kind:member	line:150
-category	../parser.py	/^import category$/;"	kind:namespace	line:11
+__str__	../category.py	/^    def __str__(self):$/;"	kind:member	line:59
+__str__	../item.py	/^    def __str__(self):$/;"	kind:member	line:7
+__str__	../semantics.py	/^    def __str__(self):$/;"	kind:member	line:140
+__str__	../semantics.py	/^    def __str__(self):$/;"	kind:member	line:27
+__str__	../semantics.py	/^    def __str__(self):$/;"	kind:member	line:57
+__str__	../semantics.py	/^    def __str__(self):$/;"	kind:member	line:98
+backward_application	../rules.py	/^def backward_application(item1, item2, dest):$/;"	kind:function	line:29
+baldridgeRules	../rules.py	/^baldridgeRules = [[],$/;"	kind:variable	line:290
+beta	../semantics.py	/^def beta(body, arg):$/;"	kind:function	line:83
+body	../semantics.py	/^    def body(self):$/;"	kind:member	line:160
+c_arg	../rules.py	/^c_arg = [category.NP, category.S, category.VBI]$/;"	kind:variable	line:55
+category	../parser.py	/^import category$/;"	kind:namespace	line:12
+category	../rules.py	/^import category$/;"	kind:namespace	line:7
 category	../test_parser.py	/^import category$/;"	kind:namespace	line:9
 category.py	../category.py	1;"	kind:file	line:1
-centerlines	../parser.py	/^    def centerlines(lines):$/;"	kind:member	line:60
+centerlines	../item.py	/^    def centerlines(lines):$/;"	kind:member	line:36
 cod	../category.py	/^    def cod(self):$/;"	kind:member	line:31
-cod	../category.py	/^    def cod(self):$/;"	kind:member	line:73
-display	../parser.py	/^    def display(self):$/;"	kind:member	line:81
+cod	../category.py	/^    def cod(self):$/;"	kind:member	line:67
+compose_constraint_violation	../rules.py	/^def compose_constraint_violation(item1, item2, n, dir='>'):$/;"	kind:function	line:74
+counter	../semantics.py	/^counter = 0$/;"	kind:variable	line:10
+deconstruct	../rules.py	/^def deconstruct(item1, item2):$/;"	kind:function	line:12
+display	../item.py	/^    def display(self):$/;"	kind:member	line:57
+dofwdcompose	../rules.py	/^def dofwdcompose(cat1, cat2):$/;"	kind:function	line:194
 dom	../category.py	/^    def dom(self):$/;"	kind:member	line:27
-dom	../category.py	/^    def dom(self):$/;"	kind:member	line:69
-fillCell	../parser.py	/^def fillCell(chart, i, j):$/;"	kind:function	line:137
-intrans	../parser.py	/^def intrans(vb):$/;"	kind:function	line:91
-left	../semantics.py	/^    def left(self):$/;"	kind:member	line:113
-mergeLines	../parser.py	/^    def mergeLines(lines1, lines2, extra=0):$/;"	kind:member	line:66
-mkChart	../parser.py	/^def mkChart(wds):$/;"	kind:function	line:128
-modal	../parser.py	/^def modal(wd):$/;"	kind:function	line:107
-p	../parser.py	/^def p(sentence):$/;"	kind:function	line:186
-parse	../parser.py	/^def parse(sentence):$/;"	kind:function	line:174
+dom	../category.py	/^    def dom(self):$/;"	kind:member	line:63
+fillCell	../parser.py	/^def fillCell(chart, i, j, rules=rules.baldridgeRules):$/;"	kind:function	line:82
+forward_application	../rules.py	/^def forward_application(item1, item2, dest):$/;"	kind:function	line:19
+forward_composition	../rules.py	/^def forward_composition(item1, item2, dest):$/;"	kind:function	line:37
+functools	../rules.py	/^import functools$/;"	kind:namespace	line:5
+generalized_forward_composition	../rules.py	/^def generalized_forward_composition(item1, item2, dest):$/;"	kind:function	line:134
+gensym	../semantics.py	/^def gensym(base='x'):$/;"	kind:function	line:13
+intrans	../parser.py	/^def intrans(vb):$/;"	kind:function	line:34
+item.py	../item.py	1;"	kind:file	line:1
+left	../semantics.py	/^    def left(self):$/;"	kind:member	line:123
+mergeLines	../item.py	/^    def mergeLines(lines1, lines2, extra=0):$/;"	kind:member	line:42
+mkChart	../parser.py	/^def mkChart(wds):$/;"	kind:function	line:73
+modal	../parser.py	/^def modal(wd):$/;"	kind:function	line:50
+normalize	../rules.py	/^normalize = True$/;"	kind:variable	line:16
+np_s	../rules.py	/^np_s = category.SlashCategory(category.RIGHT, category.NP, category.S)$/;"	kind:variable	line:207
+p	../parser.py	/^def p(sentence):$/;"	kind:function	line:110
+parse	../parser.py	/^def parse(sentence):$/;"	kind:function	line:98
 parser	../test_parser.py	/^import parser$/;"	kind:namespace	line:10
 parser.py	../parser.py	1;"	kind:file	line:1
-pn	../parser.py	/^def pn(wd):$/;"	kind:function	line:86
-re	../parser.py	/^import re$/;"	kind:namespace	line:9
-reduce	../semantics.py	/^    def reduce(self):$/;"	kind:member	line:106
-reduce	../semantics.py	/^    def reduce(self):$/;"	kind:member	line:146
-reduce	../semantics.py	/^    def reduce(self):$/;"	kind:member	line:33
-reduce	../semantics.py	/^    def reduce(self):$/;"	kind:member	line:69
-right	../semantics.py	/^    def right(self):$/;"	kind:member	line:117
-sem	../parser.py	/^import semantics as sem$/;"	kind:namespace	line:12
+pn	../parser.py	/^def pn(wd):$/;"	kind:function	line:29
+re	../parser.py	/^import re$/;"	kind:namespace	line:10
+reduce	../semantics.py	/^    def reduce(self):$/;"	kind:member	line:116
+reduce	../semantics.py	/^    def reduce(self):$/;"	kind:member	line:156
+reduce	../semantics.py	/^    def reduce(self):$/;"	kind:member	line:43
+reduce	../semantics.py	/^    def reduce(self):$/;"	kind:member	line:79
+right	../semantics.py	/^    def right(self):$/;"	kind:member	line:127
+rules	../parser.py	/^import rules$/;"	kind:namespace	line:14
+rules.py	../rules.py	1;"	kind:file	line:1
+s_np	../rules.py	/^s_np = category.SlashCategory(category.RIGHT, category.S, category.NP)$/;"	kind:variable	line:209
+s_np__s_np	../rules.py	/^s_np__s_np = category.SlashCategory(category.RIGHT, s_np, s_np)$/;"	kind:variable	line:215
+s_np_s	../rules.py	/^s_np_s = category.SlashCategory(category.RIGHT, s_np, category.S)$/;"	kind:variable	line:211
+s_np_s_np	../rules.py	/^s_np_s_np = category.SlashCategory(category.RIGHT, s_np_s, category.NP)$/;"	kind:variable	line:213
+sem	../parser.py	/^import semantics as sem$/;"	kind:namespace	line:13
+semantics	../rules.py	/^import semantics$/;"	kind:namespace	line:8
 semantics.py	../semantics.py	1;"	kind:file	line:1
-shift	../semantics.py	/^    def shift(self, delta, base=0):$/;"	kind:member	line:140
-shift	../semantics.py	/^    def shift(self, delta, base=0):$/;"	kind:member	line:27
-shift	../semantics.py	/^    def shift(self, delta, base=0):$/;"	kind:member	line:57
-shift	../semantics.py	/^    def shift(self, delta, base=0):$/;"	kind:member	line:99
+shift	../semantics.py	/^    def shift(self, delta, base=0):$/;"	kind:member	line:109
+shift	../semantics.py	/^    def shift(self, delta, base=0):$/;"	kind:member	line:150
+shift	../semantics.py	/^    def shift(self, delta, base=0):$/;"	kind:member	line:37
+shift	../semantics.py	/^    def shift(self, delta, base=0):$/;"	kind:member	line:67
 slash	../category.py	/^    def slash(self):$/;"	kind:member	line:35
-slash	../category.py	/^    def slash(self):$/;"	kind:member	line:77
-subst	../semantics.py	/^    def subst(self, k, e):$/;"	kind:member	line:103
-subst	../semantics.py	/^    def subst(self, k, e):$/;"	kind:member	line:143
-subst	../semantics.py	/^    def subst(self, k, e):$/;"	kind:member	line:30
-subst	../semantics.py	/^    def subst(self, k, e):$/;"	kind:member	line:63
-test_beta	../semantics.py	/^def test_beta():$/;"	kind:function	line:154
-test_parse	../test_parser.py	/^def test_parse():$/;"	kind:function	line:19
+slash	../category.py	/^    def slash(self):$/;"	kind:member	line:71
+subst	../semantics.py	/^    def subst(self, k, e):$/;"	kind:member	line:113
+subst	../semantics.py	/^    def subst(self, k, e):$/;"	kind:member	line:153
+subst	../semantics.py	/^    def subst(self, k, e):$/;"	kind:member	line:40
+subst	../semantics.py	/^    def subst(self, k, e):$/;"	kind:member	line:73
+test_beta	../semantics.py	/^def test_beta():$/;"	kind:function	line:164
+test_gfc	../rules.py	/^def test_gfc():$/;"	kind:function	line:218
+test_parse	../test_parser.py	/^def test_parse():$/;"	kind:function	line:17
 test_parser.py	../test_parser.py	1;"	kind:file	line:1
-test_words	../test_parser.py	/^def test_words():$/;"	kind:function	line:15
-toString	../semantics.py	/^    def toString(self, stack=[]):$/;"	kind:member	line:126
-toString	../semantics.py	/^    def toString(self, stack=[]):$/;"	kind:member	line:14
-toString	../semantics.py	/^    def toString(self, stack=[]):$/;"	kind:member	line:41
-toString	../semantics.py	/^    def toString(self, stack=[]):$/;"	kind:member	line:82
-toStrings	../parser.py	/^    def toStrings(self):$/;"	kind:member	line:43
-trans	../parser.py	/^def trans(vb):$/;"	kind:function	line:96
-words	../parser.py	/^def words(s: str):$/;"	kind:function	line:21
+test_words	../test_parser.py	/^def test_words():$/;"	kind:function	line:13
+toString	../semantics.py	/^    def toString(self, stack=[]):$/;"	kind:member	line:136
+toString	../semantics.py	/^    def toString(self, stack=[]):$/;"	kind:member	line:24
+toString	../semantics.py	/^    def toString(self, stack=[]):$/;"	kind:member	line:51
+toString	../semantics.py	/^    def toString(self, stack=[]):$/;"	kind:member	line:92
+toStrings	../item.py	/^    def toStrings(self):$/;"	kind:member	line:17
+trans	../parser.py	/^def trans(vb):$/;"	kind:function	line:39
+words	../parser.py	/^def words(s: str):$/;"	kind:function	line:24
