@@ -36,13 +36,6 @@ class BaseCategory:
         return None
 
 
-NP = BaseCategory("NP")
-S = BaseCategory("S")
-
-LEFT = '\\'
-RIGHT = '/'
-
-
 class SlashCategory:
 
     def __init__(self, slash, cod, dom, restr=None):
@@ -77,3 +70,11 @@ class SlashCategory:
     @property
     def slash(self):
         return self.__slash
+
+
+LEFT = '\\'
+RIGHT = '/'
+
+NP = BaseCategory("NP")
+S = BaseCategory("S")
+VBI = SlashCategory(LEFT, S, NP)

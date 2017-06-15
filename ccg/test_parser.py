@@ -9,13 +9,13 @@ Created on Tue May 30 14:13:01 2017
 import category
 import parser
 
-"""from pytest import *"""
-
 
 def test_words():
     assert parser.words('Fido barks.') == ['fido', 'barks']
 
 
 def test_parse():
-    assert (parser.parse('Fido eats cheese.') ==
-            [parser.Item(category.S, 'eats(fido)(cheese)')])
+    ans = parser.parse('Fido eats cheese')
+    assert len(ans) == 1
+    assert ans[0].cat == category.S
+    assert str(ans[0].sem) == 'eats(fido)(cheese)'

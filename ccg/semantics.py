@@ -7,6 +7,16 @@ Created on Fri Jun  2 15:50:07 2017
 """
 
 
+counter = 0
+
+
+def gensym(base='x'):
+    global counter
+    name = base + str(counter)
+    counter += 1
+    return name
+
+
 class Const:
     def __init__(self, nm: str):
         self.__name = nm
