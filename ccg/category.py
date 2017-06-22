@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 """
 Created on Tue May 30 14:48:25 2017
 
@@ -9,7 +6,7 @@ Created on Tue May 30 14:48:25 2017
 
 
 class BaseCategory:
-
+    """An atomic grammatical category, such as NP"""
     def __init__(self, nm: str):
         self.__name = nm
 
@@ -37,7 +34,8 @@ class BaseCategory:
 
 
 class SlashCategory:
-
+    """A complex grammatical category, with a given codomain, domain, 
+       and slash type"""
     def __init__(self, slash, cod, dom, restr=None):
         self.__slash = slash
         self.__cod = cod
@@ -72,6 +70,10 @@ class SlashCategory:
         return self.__slash
 
 
+########################
+# SLASH-TYPE CONSTANTS #
+########################
+
 LEFT = '\\'
 RIGHT = '/'
 
@@ -85,9 +87,13 @@ def invert(dir):
     raise ValueError(f'bad direction {dir}')
 
 
-NP = BaseCategory("NP")
-S = BaseCategory("S")
-PP = BaseCategory("PP")
-VBI = SlashCategory(LEFT, S, NP)
-VBT = SlashCategory(RIGHT, VBI, NP)
-MODAL = SlashCategory(RIGHT, VBI, VBI)
+############################
+# USEFUL COMMON CATEGORIES #
+############################
+
+NP = BaseCategory("NP")                   # noun phrase
+S = BaseCategory("S")                     # sentence
+PP = BaseCategory("PP")                   # prepositional phrase
+VBI = SlashCategory(LEFT, S, NP)          # intransitive verb, S\NP
+VBT = SlashCategory(RIGHT, VBI, NP)       # transitive verb, (S\NP)/NP
+MODAL = SlashCategory(RIGHT, VBI, VBI)    # modal verb, (S\NP)/(S\NP)
