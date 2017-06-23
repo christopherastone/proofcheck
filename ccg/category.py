@@ -34,7 +34,7 @@ class BaseCategory:
 
 
 class SlashCategory:
-    """A complex grammatical category, with a given codomain, domain, 
+    """A complex grammatical category, with a given codomain, domain,
        and slash type"""
     def __init__(self, slash, cod, dom, restr=None):
         self.__slash = slash

@@ -20,7 +20,7 @@ def forward_application(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
     if (cat1.slash == category.RIGHT and cat1.dom == cat2 and
             # XXX: overly specific - won't extend to generalized composition
-            (not normalize or (item1.why[0] != '>' and 
+            (not normalize or (item1.why[0] != '>' and
                                (not item1.why[0].startswith('>B')) and
                                item1.why[0] != '>T'))):
         dest += [Item(cat1.cod,
@@ -65,17 +65,18 @@ def typeraise_right(T, item):
             category.SlashCategory(
                 category.RIGHT, T,
                 category.SlashCategory(category.LEFT, T, item.cat)),
-            semantics.Lam(semantics.gensym(),
+            semantics.Lam("z",
                           semantics.App(semantics.BoundVar(0),
                                         item.sem.shift(1))),
             ['>T', item])
+
 
 def typeraise_left(T, item):
     return Item(
             category.SlashCategory(
                 category.LEFT, T,
                 category.SlashCategory(category.RIGHT, T, item.cat)),
-            semantics.Lam(semantics.gensym(),
+            semantics.Lam("z",
                           semantics.App(semantics.BoundVar(0),
                                         item.sem.shift(1))),
             ['<T', item])
@@ -257,21 +258,17 @@ def generalized_forward_composition(item1, item2, dest):
     # simplify body
     outsem = outsem.reduce()
     # lambda-abstract
-    outsem = functools.reduce(
-                lambda x, y: semantics.Lam(y, x),
-                [outsem] + [semantics.gensym() for z in zs])
+    if len(zs) == 1:
+        # Pick a nicer name than a0 for simple composition
+        outsem = semantics.Lam("a", outsem)
+    else:
+        outsem = functools.reduce(
+                    lambda x, y: semantics.Lam(y, x),
+                    [outsem] + ["a" + str(i) for i in range(len(zs))])
 
     outwhy = ['>B' + str(nargs), item1, item2]
 
     dest += [Item(outcat, outsem, outwhy)]
-
-
-def dofwdcompose(cat1, cat2):
-    out = []
-    generalized_forward_composition(Item(cat1, semantics.Const("f"), None),
-                                    Item(cat2, semantics.Const("g"), None),
-                                    out)
-    return out
 
 
 ###############################################
@@ -290,70 +287,65 @@ s_np_s_np = category.SlashCategory(category.RIGHT, s_np_s, category.NP)
 s_np__s_np = category.SlashCategory(category.RIGHT, s_np, s_np)
 
 
-def test_gfc():
-    oldcounter = semantics.counter
+def dofwdcompose(cat1, cat2):
+    out = []
+    generalized_forward_composition(Item(cat1, semantics.Const("f"), None),
+                                    Item(cat2, semantics.Const("g"), None),
+                                    out)
+    return out
 
-    semantics.counter = 0
+
+def test_gfc():
     ans1 = dofwdcompose(category.NP, category.S)
     assert ans1 == []
 
-    semantics.counter = 0
     ans2 = dofwdcompose(np_s, category.S)
     assert len(ans2) == 1
     assert str(ans2[0].cat) == 'NP'
     assert str(ans2[0].sem) == 'f(g)'
     assert ans2[0].why[0] == '>B0'
 
-    semantics.counter = 0
     ans3 = dofwdcompose(np_s, s_np)
     assert len(ans3) == 1
     assert str(ans3[0].cat) == '(NP/NP)'
-    assert str(ans3[0].sem) == 'λx0.f(g(x0))'
+    assert str(ans3[0].sem) == 'λa.f(g(a))'
     assert ans3[0].why[0] == '>B1'
 
-    semantics.counter = 0
     ans4 = dofwdcompose(np_s, s_np_s)
     assert len(ans4) == 1
     assert str(ans4[0].cat) == '((NP/NP)/S)'
-    assert str(ans4[0].sem) == 'λx1.λx0.f(g(x1)(x0))'
+    assert str(ans4[0].sem) == 'λa1.λa0.f(g(a1)(a0))'
     assert ans4[0].why[0] == '>B2'
 
-    semantics.counter = 0
     ans5 = dofwdcompose(s_np_s, s_np)
     assert len(ans5) == 1
     assert str(ans5[0].cat == '((S/NP)/NP)')
-    assert str(ans5[0].sem) == 'λx0.f(g(x0))'
+    assert str(ans5[0].sem) == 'λa.f(g(a))'
     assert ans5[0].why[0] == '>B1'
 
-    semantics.counter = 0
     ans6 = dofwdcompose(s_np__s_np, s_np_s)
     assert len(ans6) == 1
     assert str(ans6[0].cat) == '((S/NP)/S)'
-    assert str(ans6[0].sem) == 'λx0.f(g(x0))'
+    assert str(ans6[0].sem) == 'λa.f(g(a))'
     assert ans6[0].why[0] == '>B1'
 
-    semantics.counter = 0
     ans7 = dofwdcompose(s_np__s_np, s_np_s_np)
     assert len(ans7) == 1
     assert str(ans7[0].cat) == '(((S/NP)/S)/NP)'
-    assert str(ans7[0].sem) == 'λx1.λx0.f(g(x1)(x0))'
+    assert str(ans7[0].sem) == 'λa1.λa0.f(g(a1)(a0))'
     assert ans7[0].why[0] == '>B2'
 
-    semantics.counter = 0
     ans8 = dofwdcompose(s_np__s_np, s_np__s_np)
     assert len(ans8) == 1
     assert str(ans8[0].cat) == '((S/NP)/(S/NP))'
-    assert str(ans8[0].sem) == 'λx0.f(g(x0))'
+    assert str(ans8[0].sem) == 'λa.f(g(a))'
     assert ans8[0].why[0] == '>B1'
 
-    semantics.counter = 0
     ans9 = dofwdcompose(s_np__s_np, s_np)
     assert len(ans9) == 1
     assert str(ans9[0].cat) == '(S/NP)'
     assert str(ans9[0].sem) == 'f(g)'
     assert ans9[0].why[0] == '>B0'
-
-    semantics.counter = oldcounter
 
 
 """

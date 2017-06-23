@@ -35,8 +35,8 @@ def trans(vb):
     """Creates a transitive-verb entry the lexicon, with the given name
        adnd the semantics λy. λx. vb x  y"""
     return Item(VBT,
-                sem.Lam(sem.gensym("y"),
-                        sem.Lam(sem.gensym("x"),
+                sem.Lam("y",
+                        sem.Lam("x",
                                 sem.App(sem.App(sem.Const(vb),
                                                 sem.BoundVar(0)),
                                         sem.BoundVar(1)))),
@@ -47,8 +47,8 @@ def modal(wd):
     """Creates a modal-verb entry in the lexicon, with the given name
        and the semantics λf. λx. wd(f x) """
     return Item(MODAL,
-                sem.Lam(sem.gensym("f"),
-                        sem.Lam(sem.gensym("x"),
+                sem.Lam("f",
+                        sem.Lam("x",
                                 sem.App(sem.Const(wd),
                                         sem.App(sem.BoundVar(1),
                                                 sem.BoundVar(0))))),

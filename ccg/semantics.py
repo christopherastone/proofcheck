@@ -7,16 +7,6 @@ Created on Fri Jun  2 15:50:07 2017
 """
 
 
-counter = 0
-
-
-def gensym(base='x'):
-    global counter
-    name = base + str(counter)
-    counter += 1
-    return name
-
-
 class Const:
     def __init__(self, nm: str):
         self.__name = nm
@@ -134,8 +124,12 @@ class Lam:
         self.__body = body.reduce()
 
     def toString(self, stack=[]):
-        return ("λ" + self.__hint + "." +
-                self.__body.toString([self.__hint]+stack))
+        ident = self.__hint
+        count = 0
+        while ident in stack:
+            ident = self.__hint + str(count)
+            count = count + 1
+        return ("λ" + ident + "." + self.__body.toString([ident]+stack))
 
     def __str__(self):
         return self.toString()
