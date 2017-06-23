@@ -19,3 +19,8 @@ def test_parse():
     assert len(ans) == 1
     assert ans[0].cat == category.S
     assert str(ans[0].sem) == 'eats(fido)(cheese)'
+
+    ans = parser.parse('will eat cheese')
+    assert len(ans) == 1
+    assert ans[0].cat == category.VBI
+    assert str(ans[0].sem) == "λx.will(eat(x)(cheese))"
