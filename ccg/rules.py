@@ -28,6 +28,7 @@ def forward_application(item1, item2, dest):
                       ['>', item1, item2])]
 """
 
+
 def backward_application(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
     if (cat2.slash == category.LEFT and cat2.dom == cat1 and
