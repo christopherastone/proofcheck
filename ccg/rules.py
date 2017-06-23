@@ -15,7 +15,7 @@ def deconstruct(item1, item2):
 
 normalize = True
 
-
+"""
 def forward_application(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
     if (cat1.slash == category.RIGHT and cat1.dom == cat2 and
@@ -26,7 +26,7 @@ def forward_application(item1, item2, dest):
         dest += [Item(cat1.cod,
                       semantics.App(sem1, sem2).reduce(),
                       ['>', item1, item2])]
-
+"""
 
 def backward_application(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
@@ -39,6 +39,7 @@ def backward_application(item1, item2, dest):
                       ['<', item1, item2])]
 
 
+"""
 def forward_composition(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
     if (cat1.slash == category.RIGHT and
@@ -55,7 +56,7 @@ def forward_composition(item1, item2, dest):
                               sem2,
                               semantics.BoundVar(0))).reduce()),
                   ['>B', item1, item2])])
-
+"""
 
 c_arg = [category.NP, category.S, category.VBI]
 
