@@ -1,3 +1,6 @@
+# Nondistributable files
+ccgbank_1_1
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
