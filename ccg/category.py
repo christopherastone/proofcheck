@@ -12,13 +12,28 @@ class Metavar:
         self.__hint = hint
 
     def __str__(self):
-        return str(f'M[{self.__hint}{id(self)}]')
+        return str(f'M[{self.__hint}:{id(self)}]')
 
     def subst(self, sub):
-        if self in sub:
-            return sub[self]
-        else:
-            return self
+        # return sub[self], or if that's not defined, just self
+        sub.setdefault(self, self)
+
+    # WARNING: We are assuming that metavariables
+    # can not be applied to neighboring arguments.
+    # (At least not before they
+    # have been instantiated and replaced)
+
+    @property
+    def dom(self):
+        return None
+
+    @property
+    def cod(self):
+        return None
+
+    @property
+    def slash(self):
+        return None
 
     def unify(self, other, sub=pyrsistent.m()):
         if self in sub:
@@ -32,14 +47,24 @@ class Metavar:
             return sub.transform([pyrsistent.ny],  # apply to all keys
                                  lambda c: c.subst(upd)).update(upd)
 
+    def refresh(self):
+        return Metavar(self.__hint)
+
 
 class BaseCategory:
     """An atomic grammatical category, such as NP"""
-    def __init__(self, nm: str):
-        self.__name = nm
+    def __init__(self, name: str, attrs=pyrsistent.m()):
+        self.__name = name
+        self.__attrs = attrs
 
     def __str__(self):
-        return self.__name
+        if self.__attrs:
+            return self.__name + '[' + ','.join(self.__attrs.values()) + ']'
+        else:
+            return self.__name
+
+    def with_attr(self, attrs):
+        return BaseCategory(self.__name, attrs)
 
     def __repr__(self):
         return f'BaseCategory({self.__name!r})'
@@ -66,10 +91,17 @@ class BaseCategory:
     def unify(self, other, sub=pyrsistent.m()):
         if isinstance(other, Metavar):
             return other.unify(self, sub)
-        elif self == other:
+        elif isinstance(other, BaseCategory) and self.__name == other.__name:
+            # check the attributes can be merged.
+            for k, v in self.__attrs.items():
+                if k in other.__attrs and other.__attrs[k] != v:
+                    return None
             return sub
         else:
             return None
+
+    def refresh(self):
+        return self
 
 
 class SlashCategory:
@@ -130,6 +162,14 @@ class SlashCategory:
         else:
             return None
 
+    def refresh(self):
+        dom2 = self.__dom.refresh()
+        cod2 = self.__cod.refresh()
+        if self.__dom is not dom2 or self.__cod is not cod2:
+            return SlashCategory(self.__slash, dom2, cod2, self.__restr)
+        else:
+            return self
+
 
 ########################
 # SLASH-TYPE CONSTANTS #
@@ -156,13 +196,24 @@ NP = BaseCategory("NP")                   # noun phrase
 S = BaseCategory("S")                     # sentence
 PP = BaseCategory("PP")                   # prepositional phrase
 VBI = SlashCategory(LEFT, S, NP)          # intransitive verb, S\NP
-VBT = SlashCategory(RIGHT, VBI, NP)       # transitive verb, (S\NP)/NP
+VBT = SlashCategory("/", VBI, NP)       # transitive verb, (S\NP)/NP
 MODAL = SlashCategory(RIGHT, VBI, VBI)    # modal verb, (S\NP)/(S\NP)
 
+X = Metavar("X")
+COORD = SlashCategory("/,", SlashCategory("\\,", X, X), X)
+
+SINGULAR = pyrsistent.m(num='sg')
+PLURAL = pyrsistent.m(num='pl')
+
+NPsg = BaseCategory("NP", SINGULAR)
+NPpl = BaseCategory("NP", PLURAL)
+VBI3 = SlashCategory(LEFT, S, NPsg)
+VBT3 = SlashCategory(RIGHT, VBI3, NP)
 
 #####################
 # Simple unit tests #
 #####################
+
 
 def test_eq():
     assert VBI != VBT

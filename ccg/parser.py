@@ -9,39 +9,39 @@ Created on Tue May 30 14:13:01 2017
 
 import re
 
-from category import NP, S, VBI, VBT, MODAL
+from category import *
 from item import Item
+import pyrsistent
 import semantics as sem
 import rules
 
 
 # LEXICON CONSTRUCTION
 
-def pn(wd):
+def pn(wd, attr=pyrsistent.m()):
     """Creates a NP entry for the lexicon, with the given proper name
        and the semantics of a constant
     """
-    return Item(NP, sem.Const(wd), wd)
+    return Item(NP.with_attr(attr), sem.Const(wd, 0), wd)
 
 
 def intrans(vb):
     """Creates an intransitive-verb entry the lexicon, with the given name
        and the semantics of a constant (or equivalently, λx. vb x )
     """
-    return Item(VBI, sem.Const(vb), vb)
+    return Item(VBI, sem.Const(vb, 1), vb)
 
+def intrans3(vb):
+    """Creates an intransitive-verb entry the lexicon, with the given name
+       and the semantics of a constant (or equivalently, λx. vb x )
+    """
+    return Item(VBI3, sem.Const(vb, 1), vb)
 
 def trans(vb):
-    """Creates a transitive-verb entry the lexicon, with the given name
-       adnd the semantics λy. λx. vb x  y"""
-    return Item(VBT,
-                sem.Lam("y",
-                        sem.Lam("x",
-                                sem.App(sem.App(sem.Const(vb),
-                                                sem.BoundVar(0)),
-                                        sem.BoundVar(1)))),
-                vb)
+    return Item(VBT, sem.Const(vb, 2), vb)
 
+def trans3(vb):
+    return Item(VBT3, sem.Const(vb, 2), vb)
 
 def modal(wd):
     """Creates a modal-verb entry in the lexicon, with the given name
@@ -49,28 +49,40 @@ def modal(wd):
     return Item(MODAL,
                 sem.Lam("f",
                         sem.Lam("x",
-                                sem.App(sem.Const(wd),
+                                sem.App(sem.Const(wd,1),
                                         sem.App(sem.BoundVar(1),
                                                 sem.BoundVar(0))))),
                 wd)
 
+
+def coord(wd):
+    return Item(COORD,
+                sem.Lam("y",
+                        sem.Lam("x",
+                                sem.App(sem.App(sem.Const(wd,2),
+                                                sem.BoundVar(0)),
+                                        sem.BoundVar(1)))),
+                wd)
 
 ################
 # TEST LEXICON #
 ################
 
 
-LEXICON = {'fido': [pn('fido')],
+LEXICON = {'fido': [pn('fido', pyrsistent.m(num='sg'))],
            'cheese': [pn('cheese')],
+           'geese': [Item(NPpl, sem.Const('geese', 0), 'geese')],
            'barks': [intrans('barks')],
-           'eats': [intrans('eats'), trans('eats')],
+           'eats': [intrans3('eats'), trans3('eats')],
            'eat': [intrans('eat'), trans('eat')],
            'sees': [trans('sees')],
            'see': [trans('see')],
            'brazil': [pn('brazil')],
            'defeated': [trans('defeated')],
            'germany': [pn('germany')],
-           'will': [modal('will')]}   # baldridge p. 24-25
+           'will': [modal('will')],   # baldridge p. 24-25
+           'and': [coord('and')],
+           'xxx': [Item(X, sem.Const('xxx'), 'xxx')]}
 
 
 ###########
@@ -137,7 +149,7 @@ def parse(sentence):
         for i in range(nwds-tot):
             j = i+tot
             fillCell(chart, i, j)
-    # print(chart)
+    #print(chart)
     return chart[(0, nwds-1)]
 
 
@@ -149,7 +161,27 @@ def p(sentence):
         item.display()
         print()
 
+
+def dump(sentence):
+    """parse the given string and return all complete parses"""
+    wds = words(sentence)
+    nwds = len(wds)
+    chart = mkChart(wds)
+    # print(f'starting chart = {chart}')
+    for tot in range(0, nwds):
+        for i in range(nwds-tot):
+            j = i+tot
+            fillCell(chart, i, j)
+    for i in chart.keys():
+        print("# ", i)
+        for item in chart[i]:
+            item.display()
+            print()
+        print()
+
+
 # p('fido barks')
 # p('fido eats cheese')
 # p('will eat')
 # p('fido will eat cheese')
+# p('xxx barks')

@@ -8,11 +8,15 @@ Created on Fri Jun  2 15:50:07 2017
 
 
 class Const:
-    def __init__(self, nm: str):
+    def __init__(self, nm: str, arity=1):
         self.__name = nm
+        self.__arity = arity
 
-    def toString(self, stack=[]):
-        return self.__name
+    def toString(self, stack=[], applied=False):
+        if applied or (self.__arity == 0):
+            return self.__name
+        else:
+            return self.__name + "#" + str(self.__arity)
 
     def __str__(self):
         return self.toString()
@@ -38,7 +42,7 @@ class BoundVar:
     def __init__(self, n):
         self.__num = n
 
-    def toString(self, stack=[]):
+    def toString(self, stack=[], applied=False):
         if (0 <= self.__num < len(stack)):
             return stack[self.__num]
         else:
@@ -79,11 +83,11 @@ class App:
         self.__left = left.reduce()
         self.__right = right.reduce()
 
-    def toString(self, stack=[]):
-        left = self.__left.toString(stack)
+    def toString(self, stack=[], applied=False):
+        left = self.__left.toString(stack, True)
         left = '(' + left + ')' if isinstance(self.__left, Lam) else left
         return (left + '(' +
-                self.__right.toString(stack) + ')')
+                self.__right.toString(stack, False) + ')')
 
     def __str__(self):
         return self.toString()
@@ -123,13 +127,13 @@ class Lam:
         self.__hint = hint
         self.__body = body.reduce()
 
-    def toString(self, stack=[]):
+    def toString(self, stack=[], applied=False):
         ident = self.__hint
         count = 0
         while ident in stack:
             ident = self.__hint + str(count)
             count = count + 1
-        return ("λ" + ident + "." + self.__body.toString([ident]+stack))
+        return ("λ" + ident + "." + self.__body.toString([ident]+stack, False))
 
     def __str__(self):
         return self.toString()

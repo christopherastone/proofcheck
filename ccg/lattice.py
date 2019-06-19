@@ -25,6 +25,11 @@ def first(iterable):
 
 
 def transitive_closure(adjacency, bot):
+    """
+    Calculates the transitive closure of the given DAG
+    in adjacency-set format, by doing a depth-first
+    search from the unique root of the DAG (the bottom element)
+    """
     closure = defaultdict(set)
 
     def dfs(current, belows):
@@ -39,14 +44,16 @@ def transitive_closure(adjacency, bot):
 
 
 class FiniteLattice:
+
     def __init__(self, edges):
         """
-        elements is the set of all values mentioned in the Hasse diagram.
-        Notice that since it's a lattice, every value has at least one a
-           djacent edge.
-        But we do not *check* that the edges form a lattice.
+        Represents a finite lattice, so that we can do efficient comparisons
+        and efficient meets/joins.
+
+        The input is the sequence of edges in the Hasse diagram.
+        We assume, but do not verify, that they form a lattice.
         """
-        self.edges = edges
+        self.edges = list(edges)  # copy the values, not the reference
         self.rev_edges = [[b, a] for [a, b] in edges]
         self.elements = frozenset(node for edge in self.edges for node in edge)
         self.adjacency = edge_list_to_adjacency_map(self.edges)
@@ -57,26 +64,25 @@ class FiniteLattice:
         self.strictlowers = transitive_closure(self.rev_adjacency, self.top)
 
         # memoize joins and meets
-        self._join = {}
-        self._meet = {}
+        self.__join = {}
+        self.__meet = {}
         for a in self.elements:
             for b in self.elements:
-                self._join[(a, b)] = self.calc_join(a, b)
-                self._meet[(a, b)] = self.calc_meet(a, b)
+                self.__join[(a, b)] = self.calc_join(a, b)
+                self.__meet[(a, b)] = self.calc_meet(a, b)
 
     def join(self, a, b):
-        return self._join[(a,b)]
+        return self.__join[(a, b)]
 
     def meet(self, a, b):
-        return self._meet[(a,b)]
+        return self.__meet[(a, b)]
 
     def __repr__(self):
-        return f'FiniteLattice({self.edges})'
+        return f'FiniteLattice({self.edges!r})'
 
     def lt(self, a, b): return b in self.strictuppers[a]
     def leq(self, a, b): return a == b or self.lt(a, b)
-
-    def gt(self, a, b): return self.lt(b, a)
+    def gt(self, a, b): return b in self.strictlowers[a]
     def geq(self, a, b): return a == b or self.gt(a, b)
 
     def maximal(self, the_set):
@@ -89,6 +95,9 @@ class FiniteLattice:
                 current = first(successors)
 
     def minimal(self, the_set):
+        """
+        Return a minimal element of the given set.
+        """
         current = first(the_set)
         while True:
             predecessors = self.rev_adjacency[current] & the_set
@@ -111,7 +120,16 @@ class FiniteLattice:
 
 
 def test():
-    f = FiniteLattice([[1, 2], [2, 3], [1, 4], [3, 5], [4, 5]])
+    """
+          5
+        /  \\
+       3    |
+       |    4
+       2    |
+        \\ /
+          1
+    """
+    f = FiniteLattice([(1, 2), (2, 3), (1, 4), (3, 5), (4, 5)])
     assert(f.lt(1, 3) and f.gt(3, 1))
     assert(f.lt(1, 5) and f.gt(5, 1))
     assert(not f.lt(5, 1) and not f.gt(1, 5))

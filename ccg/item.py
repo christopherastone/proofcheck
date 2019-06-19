@@ -33,6 +33,18 @@ class Item:
            semantic check is doing pointer equality."""
         return self.cat == other.cat and self.sem == other.sem
 
+    def subst(self, sub):
+        cat2 = self.cat.subst(sub)
+        sem2 = self.sem
+        why2 = self.why
+        if (isinstance(self.why, list)): 
+            why2 = [x.subst(sub) if isinstance(x, Item) else x
+                    for x in self.why
+                   ]
+        else:
+            why2 = self.why
+        return Item(cat2, sem2, why2)
+
     def display(self):
         """Prints the parse as a pretty tree"""
         for l in self.toStrings():
@@ -43,15 +55,16 @@ class Item:
            parse as a tree. An important (recursive) invariant of this
            code is that all lines will have the same length
            (space padded, if necessary)"""
+
+        bottom_lines = [str(self.cat), str(self.sem)]
+
         if isinstance(self.why, str):
             # This is just a single input word. Report the
             #   category and semantics (which came from the lexicon).
-            lines = [self.why,
-                     str(self.cat),
-                     str(self.sem)]
+            lines = [self.why] + bottom_lines
             return Item.centerlines(lines)
 
-        if isinstance(self.why, list):
+        elif isinstance(self.why, list):
             # This is a unary, binary, etc. rule application
             rule_label = self.why[0]
             rule_width = len(rule_label)
@@ -61,7 +74,6 @@ class Item:
             top_lines = functools.reduce(Item.mergeLines, justifications)
             top_width = max(len(l) for l in top_lines)
 
-            bottom_lines = [str(self.cat), str(self.sem)]
             bottom_width = max(len(l) for l in bottom_lines)
 
             MINIMUM_RULE_LENGTH = 4
@@ -81,8 +93,15 @@ class Item:
             return out
 
         # If we got this far, there was no valid justification
-        lines = ["???", str(self.cat), str(self.sem)]
+        lines = ["???"] + bottom_lines
         return Item.centerlines(lines)
+
+    def rule(self):
+        """Return the rule name from the 'why' part, if any"""
+        if isinstance(self.why, list):
+            return self.why[0]
+        else:
+            return ''
 
     @staticmethod
     def centerlines(lines):

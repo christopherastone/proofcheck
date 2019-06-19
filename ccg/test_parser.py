@@ -18,7 +18,7 @@ def test_parse():
     ans = parser.parse('Fido eats cheese')
     assert len(ans) == 1
     assert ans[0].cat == category.S
-    assert str(ans[0].sem) == 'eats(fido)(cheese)'
+    assert str(ans[0].sem) == 'eats(cheese)(fido)'
 
     ans = parser.parse('will eat cheese')
     assert len(ans) == 1

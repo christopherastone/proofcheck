@@ -31,13 +31,22 @@ def forward_application(item1, item2, dest):
 
 def backward_application(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
-    if (cat2.slash == category.LEFT and cat2.dom == cat1 and
-            (not normalize or (item2.why[0] != '<' and
-                               (not item2.why[0].startswith('<B')) and
-                               item2.why[0] != '<T'))):
-        dest += [Item(cat2.cod,
-                      semantics.App(sem2, sem1).reduce(),
-                      ['<', item1, item2])]
+    if not (cat2.slash and cat2.slash.startswith(category.LEFT)):
+        return  # not a function, or not looking leftwards
+
+    sub = cat2.dom.unify(cat1)
+    if sub is None:
+        return  # application category mismatch
+
+    if normalize and (item2.why[0] == '<' or
+                      item2.why[0].startswith('<B') or
+                      item2.why[0] == '<T'):
+        return  # this would lead to redundancy
+
+    dest += [Item(cat2.cod,
+                  semantics.App(sem2, sem1).reduce(),
+                  ['<', item1, item2]).subst(sub)]
+
 
 
 """
@@ -62,26 +71,39 @@ def forward_composition(item1, item2, dest):
 c_arg = [category.NP, category.S, category.VBI]
 
 
-def typeraise_right(T, item):
-    return Item(
-            category.SlashCategory(
-                category.RIGHT, T,
-                category.SlashCategory(category.LEFT, T, item.cat)),
-            semantics.Lam("z",
-                          semantics.App(semantics.BoundVar(0),
-                                        item.sem.shift(1))),
-            ['>T', item])
+def typeraise_constraint_violation(item, dir='>'):
+    # NF Constraint 6
+    if item.rule() == 'Φ':
+        return True
+    return False
 
 
-def typeraise_left(T, item):
-    return Item(
-            category.SlashCategory(
-                category.LEFT, T,
-                category.SlashCategory(category.RIGHT, T, item.cat)),
-            semantics.Lam("z",
-                          semantics.App(semantics.BoundVar(0),
-                                        item.sem.shift(1))),
-            ['<T', item])
+def typeraise_right(T, item, dest):
+    if typeraise_constraint_violation(item, '>'):
+        return
+    dest += [Item(
+                category.SlashCategory(
+                    category.RIGHT, T,
+                    category.SlashCategory(category.LEFT, T, item.cat)),
+                semantics.Lam("z",
+                              semantics.App(semantics.BoundVar(0),
+                                            item.sem.shift(1))),
+                ['>T', item])
+            ]
+
+
+def typeraise_left(T, item, dest):
+    if typeraise_constraint_violation(item, '<'):
+        return
+    dest += [Item(
+                category.SlashCategory(
+                    category.LEFT, T,
+                    category.SlashCategory(category.RIGHT, T, item.cat)),
+                semantics.Lam("z",
+                              semantics.App(semantics.BoundVar(0),
+                                            item.sem.shift(1))),
+                ['<T', item])
+           ]
 
 
 def typeraise_easyccg(item, dest):
@@ -102,33 +124,40 @@ def typeraise_easyccg(item, dest):
        slashes in the C&C/github direction.
     """
     if item.cat == category.NP:
-        dest += [typeraise_right(category.S, item),
-                 typeraise_left(category.VBI, item)]
+        typeraise_right(category.S, item, dest)
+        typeraise_left(category.VBI, item, dest)
 
     elif item.cat == category.PP:
-        dest += [typeraise_left(category.VBI, item)]
+        typeraise_left(category.VBI, item, dest)
 
 
 def typeraise_candc(item, dest):
     """Taken from Appendix A (p542) of Clark and Curran, 2007."""
+    print("C AND C")
     if item.cat == category.NP:
-        dest += [typeraise_right(category.S, item),
-                 typeraise_left(category.VBI, item),
-                 typeraise_left(category.VBT, item),
-                 typeraise_left(
-                     # NP -> ((S\NP)/PP) \ ( ((S\NP)/PP) / NP )
-                     category.SlashCategory(
-                         category.RIGHT, category.VBI, category.PP), item),
-                 # TODO: Add these when it's time
-                 # typeraise_left((S\NP)/(S[to]\NP), item)
-                 # typeraise_left((S\NP)/(S[adj]\NP), item)
-                 ]
+        typeraise_right(category.S, item, dest)
+        typeraise_left(category.VBI, item, dest),
+        typeraise_left(category.VBT, item, dest),
+        typeraise_left(
+            # NP -> ((S\NP)/PP) \ ( ((S\NP)/PP) / NP )
+            category.SlashCategory(category.RIGHT, category.VBI, category.PP), 
+            item, dest)
+        # TODO: Add these when it's time
+        # typeraise_left((S\NP)/(S[to]\NP), item, dest)
+        # typeraise_left((S\NP)/(S[adj]\NP), item, dest)
+
     elif item.cat == category.PP:
-        dest += [typeraise_left(category.VBI, item)]
+        typeraise_left(category.VBI, item, dest)
 
     # TODO: Add these when it's time
     # elif item.cat == (S[adj]\NP):
-    #   dest += [typeraise_left(category.VBI, item)]
+    #    typeraise_left(category.VBI, item, dest)
+
+
+def typeraise_simple(item, dest):
+    """Until we need something more"""
+    if item.cat == category.NP:
+        typeraise_right(category.S, item, dest)
 
 
 def compose_constraint_violation(item1, item2, n, dir='>'):
@@ -148,10 +177,10 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
     #   ------------------------------ >B1
     #          X/Y[1..k]/D
     if (n == 0 or n == 1):
-        if (item1.why and
-                item1.why[0] != dir+'B0' and
-                item1.why[0].startswith(dir+'B')):
-            return True
+        if item1.rule().startswith(dir+'B'):
+            # possible violation; but check that it's B(k+1), not B0
+            if item1.rule() != dir+'B0':
+                return True
 
     # Hockenmaier and Bisk NF Constraint 2:
     # Forbid
@@ -189,7 +218,8 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
         return True
 
     # Hockenmaier and Bisk NF Constraint 4:
-    #    TODO
+    # TBA
+
 
     # Hockenmaier and Bisk NF Constraint 5:
     # Forbid
@@ -216,21 +246,28 @@ def generalized_forward_composition(item1, item2, dest):
 
     # We are looking for item1 = (X/Y) and
     #                    item2 = Y/Z1/Z2.../Zk    (k >= 0)
-    if cat1.slash != category.RIGHT:
+    if not (cat1.slash and cat1.slash.startswith(category.RIGHT)):
         # print(f'Not applying a right slash')
         return
 
     zs = []
     right_cat = cat2
     # print(f'looking for {cat1.dom}')
-    while (right_cat != cat1.dom):
-        # print(f'loop: right_cat = {right_cat}')
-        if right_cat.slash != category.RIGHT:
+    sub = cat1.dom.unify(right_cat)
+    while (sub is None):
+        print(f'loop: right_cat = {right_cat}, sub={sub}')
+        if not (right_cat.slash and right_cat.slash.startswith(category.RIGHT)):
             # we haven't found Y, and we've run out of
             # Z's to pull off
             return
+        if ',' in cat1.slash or ',' in right_cat.slash:
+            # We couldn't directly apply, 
+            # (otherwise we wouldn't be in the loop)
+            # but a slash annotation forbids composition
+            return
         zs.append(right_cat.dom)
         right_cat = right_cat.cod
+        sub = cat1.dom.unify(right_cat)
 
     # Success... if we've gotten this far, the rule applies
     # But zs currently contains Zk, ..., Z2, Z1, so we need to reverse
@@ -239,6 +276,7 @@ def generalized_forward_composition(item1, item2, dest):
     # print(f'woohoo. zs = {zs}')
 
     if compose_constraint_violation(item1, item2, nargs, '>'):
+        # print("constraint violated; skipping")
         return
 
     # The output category will be (X/Z1)/.../Zn
@@ -270,7 +308,7 @@ def generalized_forward_composition(item1, item2, dest):
 
     outwhy = ['>B' + str(nargs), item1, item2]
 
-    dest += [Item(outcat, outsem, outwhy)]
+    dest += [Item(outcat, outsem, outwhy).subst(sub)]
 
 
 ###############################################
@@ -357,6 +395,6 @@ parsingRules = [[],
                  forward_composition]]
 """
 
-parsingRules = [[typeraise_candc],
+parsingRules = [[typeraise_simple],
                 [backward_application,
                  generalized_forward_composition]]
