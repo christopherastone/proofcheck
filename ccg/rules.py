@@ -5,7 +5,9 @@ CCG Combinatory Rules
 import functools
 
 import category
+# import formatting
 import semantics
+import slash
 from item import Item
 
 
@@ -15,58 +17,74 @@ def deconstruct(item1, item2):
 
 normalize = True
 
-"""
+
 def forward_application(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
-    if (cat1.slash == category.RIGHT and cat1.dom == cat2 and
-            # XXX: overly specific - won't extend to generalized composition
-            (not normalize or (item1.why[0] != '>' and
-                               (not item1.why[0].startswith('>B')) and
-                               item1.why[0] != '>T'))):
-        dest += [Item(cat1.cod,
-                      semantics.App(sem1, sem2).reduce(),
-                      ['>', item1, item2])]
-"""
+    if not (cat1.slash and cat1.slash <= slash.RSLASH):
+        return False  # not a function, or not looking rightwards
+
+    if not (cat2 <= cat1.dom):
+        return False  # application category mismatch
+
+    if normalize and (  # item1.why[0] == '>' or
+            item1.why[0].startswith('>B') or
+            item1.why[0] == '>T'):
+        return False  # this would lead to redundancy
+
+    dest += [Item(cat1.cod,
+                  semantics.App(sem1, sem2).reduce(),
+                  ['>', item1, item2])]
+    return True
 
 
 def backward_application(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
-    if not (cat2.slash and cat2.slash.startswith(category.LEFT)):
-        return  # not a function, or not looking leftwards
 
-    sub = cat2.dom.unify(cat1)
-    if sub is None:
-        return  # application category mismatch
+    if not (cat2.slash and cat2.slash <= slash.LSLASH):
+        print("oops 1")
+        return False  # not a function, or not looking leftwards
+
+    if not (cat1 <= cat2.dom):
+        print("oops 2")
+        print("cat1 = ", cat1, repr(cat1))
+        print("cat2.dom = ", cat2.dom, repr(cat2.dom))
+        return False  # application category mismatch
 
     if normalize and (item2.why[0] == '<' or
                       item2.why[0].startswith('<B') or
                       item2.why[0] == '<T'):
-        return  # this would lead to redundancy
+        print("oops 3")
+
+        return False  # this would lead to redundancy
 
     dest += [Item(cat2.cod,
                   semantics.App(sem2, sem1).reduce(),
-                  ['<', item1, item2]).subst(sub)]
+                  ['<', item1, item2])]
+    return True
 
 
-
-"""
 def forward_composition(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
-    if (cat1.slash == category.RIGHT and
-        cat2.slash == category.RIGHT and
-            cat1.dom == cat2.cod):
-        dest += (
-            [Item(category.SlashCategory(category.RIGHT,
-                                         cat1.cod, cat2.dom),
-                  semantics.Lam(
-                      "z",
-                      semantics.App(
-                          sem1,
-                          semantics.App(
-                              sem2,
-                              semantics.BoundVar(0))).reduce()),
-                  ['>B', item1, item2])])
-"""
+
+    if not(cat1.slash and cat1.slash <= slash.RCOMPOSE and
+            cat2.slash and cat2.slash <= slash.RCOMPOSE):
+        return False  # not both rightwards functions
+
+    if not (cat2.cod <= cat1.dom):
+        return False  # not composeable
+
+    dest += (
+        [Item(category.SlashCategory(cat1.cod, slash.RSLASH, cat2.dom),
+              semantics.Lam(
+            "z",
+            semantics.App(
+                sem1,
+                semantics.App(
+                    sem2,
+                    semantics.BoundVar(0))).reduce()),
+              ['>B', item1, item2])])
+    return True
+
 
 c_arg = [category.NP, category.S, category.VBI]
 
@@ -82,46 +100,46 @@ def typeraise_right(T, item, dest):
     if typeraise_constraint_violation(item, '>'):
         return
     dest += [Item(
-                category.SlashCategory(
-                    category.RIGHT, T,
-                    category.SlashCategory(category.LEFT, T, item.cat)),
-                semantics.Lam("z",
-                              semantics.App(semantics.BoundVar(0),
-                                            item.sem.shift(1))),
-                ['>T', item])
-            ]
+        category.SlashCategory(
+            T, slash.RSLASH,
+            category.SlashCategory(T, slash.LSLASH, item.cat)),
+        semantics.Lam("z",
+                      semantics.App(semantics.BoundVar(0),
+                                    item.sem.shift(1))),
+        ['>T', item])
+    ]
 
 
 def typeraise_left(T, item, dest):
     if typeraise_constraint_violation(item, '<'):
         return
     dest += [Item(
-                category.SlashCategory(
-                    category.LEFT, T,
-                    category.SlashCategory(category.RIGHT, T, item.cat)),
-                semantics.Lam("z",
-                              semantics.App(semantics.BoundVar(0),
-                                            item.sem.shift(1))),
-                ['<T', item])
-           ]
+        category.SlashCategory(
+            T, slash.LSLASH,
+            category.SlashCategory(T, slash.RSLASH, item.cat)),
+        semantics.Lam("z",
+                      semantics.App(semantics.BoundVar(0),
+                                    item.sem.shift(1))),
+        ['<T', item])
+    ]
 
 
 def typeraise_easyccg(item, dest):
-    """Lewis and Steedman, A* CCG Parsing with a Supertag-factored Model
+    """Lewis and Steedman, A * CCG Parsing with a Supertag-factored Model
        lists 3 specific instances of type raising used in EasyCCG, namely
-            NP   ->    S / (S\\NP)
-            NP   ->    (S\\NP) / ((S\\NP)\\NP)
-            PP   ->    (S\\NP) / ((S\\NP)\\PP)
+            NP -> S / (S\\NP)
+            NP -> (S\\NP) / ((S\\NP)\\NP)
+            PP -> (S\\NP) / ((S\\NP)\\PP)
        but the github implementation seems to say
-            NP   ->    S[X] / (S[X]\\NP)
-            NP   ->    (S[X]\\NP) \\ ((S[X]\\NP)/NP)
-            PP   ->    (S[X]\\NP) \\ ((S[X]\\NP)/PP)
-       which (a) is more general, and (b) has slashes the other direction
+            NP -> S[X] / (S[X]\\NP)
+            NP -> (S[X]\\NP) \\ ((S[X]\\NP)/NP)
+            PP -> (S[X]\\NP) \\ ((S[X]\\NP)/PP)
+       which(a) is more general, and (b) has slashes the other direction
        for the last two rules. [Curren and Clark use rules with slashes
        in the same direction as the implementation, so the paper is
        probably a typo.]
        We compromise by using the un-generalized rules, but with
-       slashes in the C&C/github direction.
+       slashes in the C & C/github direction.
     """
     if item.cat == category.NP:
         typeraise_right(category.S, item, dest)
@@ -140,7 +158,7 @@ def typeraise_candc(item, dest):
         typeraise_left(category.VBT, item, dest),
         typeraise_left(
             # NP -> ((S\NP)/PP) \ ( ((S\NP)/PP) / NP )
-            category.SlashCategory(category.RIGHT, category.VBI, category.PP), 
+            category.SlashCategory(category.RIGHT, category.VBI, category.PP),
             item, dest)
         # TODO: Add these when it's time
         # typeraise_left((S\NP)/(S[to]\NP), item, dest)
@@ -220,7 +238,6 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
     # Hockenmaier and Bisk NF Constraint 4:
     # TBA
 
-
     # Hockenmaier and Bisk NF Constraint 5:
     # Forbid
     #       X
@@ -246,7 +263,7 @@ def generalized_forward_composition(item1, item2, dest):
 
     # We are looking for item1 = (X/Y) and
     #                    item2 = Y/Z1/Z2.../Zk    (k >= 0)
-    if not (cat1.slash and cat1.slash.startswith(category.RIGHT)):
+    if not (cat1.slash and cat1.slash.dir == slash.RIGHT):
         # print(f'Not applying a right slash')
         return
 
@@ -256,12 +273,13 @@ def generalized_forward_composition(item1, item2, dest):
     sub = cat1.dom.unify(right_cat)
     while (sub is None):
         print(f'loop: right_cat = {right_cat}, sub={sub}')
-        if not (right_cat.slash and right_cat.slash.startswith(category.RIGHT)):
+        if not (right_cat.slash and
+                right_cat.slash.dir == slash.RIGHT):
             # we haven't found Y, and we've run out of
             # Z's to pull off
             return
         if ',' in cat1.slash or ',' in right_cat.slash:
-            # We couldn't directly apply, 
+            # We couldn't directly apply,
             # (otherwise we wouldn't be in the loop)
             # but a slash annotation forbids composition
             return
@@ -281,17 +299,17 @@ def generalized_forward_composition(item1, item2, dest):
 
     # The output category will be (X/Z1)/.../Zn
     outcat = functools.reduce(
-                lambda x, y: category.SlashCategory(category.RIGHT, x, y),
-                [cat1.cod] + zs)
+        lambda x, y: category.SlashCategory(x, slash.RSLASH, y),
+        [cat1.cod] + zs)
 
     # The output semantics should be
     #  \zn...\z2\z1. f (g z1 ... zn)
 
     # build f's argument.
     outsem = functools.reduce(
-                semantics.App,
-                [sem2] + [semantics.BoundVar(k)
-                          for k in reversed(range(nargs))])
+        semantics.App,
+        [sem2] + [semantics.BoundVar(k)
+                  for k in reversed(range(nargs))])
 
     # apply f
     outsem = semantics.App(sem1, outsem)
@@ -303,8 +321,8 @@ def generalized_forward_composition(item1, item2, dest):
         outsem = semantics.Lam("a", outsem)
     else:
         outsem = functools.reduce(
-                    lambda x, y: semantics.Lam(y, x),
-                    [outsem] + ["a" + str(i) for i in range(len(zs))])
+            lambda x, y: semantics.Lam(y, x),
+            [outsem] + ["a" + str(i) for i in range(len(zs))])
 
     outwhy = ['>B' + str(nargs), item1, item2]
 
@@ -316,18 +334,29 @@ def generalized_forward_composition(item1, item2, dest):
 ###############################################
 
 # NP/S
-np_s = category.SlashCategory(category.RIGHT, category.NP, category.S)
+np_s = category.SlashCategory(category.NP, slash.RSLASH, category.S)
 # S/NP
-s_np = category.SlashCategory(category.RIGHT, category.S, category.NP)
+s_np = category.SlashCategory(category.S, slash.RSLASH, category.NP)
 # (S/NP)/S
-s_np_s = category.SlashCategory(category.RIGHT, s_np, category.S)
+s_np_s = category.SlashCategory(s_np, slash.RSLASH, category.S)
 # ((S/NP)/S)/NP
-s_np_s_np = category.SlashCategory(category.RIGHT, s_np_s, category.NP)
+s_np_s_np = category.SlashCategory(s_np_s, slash.RSLASH, category.NP)
 # (S/NP) / (S/NP)
-s_np__s_np = category.SlashCategory(category.RIGHT, s_np, s_np)
+s_np__s_np = category.SlashCategory(s_np, slash.RSLASH, s_np)
 
 
-def dofwdcompose(cat1, cat2):
+def do_fwdcompose(cat1, cat2):
+    out = []
+    forward_composition(Item(cat1, semantics.Const("f"), None),
+                        Item(cat2, semantics.Const("g"), None),
+                        out)
+    return out
+
+
+do_fwdcompose(np_s, s_np)
+
+
+def do_genfwdcompose(cat1, cat2):
     out = []
     generalized_forward_composition(Item(cat1, semantics.Const("f"), None),
                                     Item(cat2, semantics.Const("g"), None),
@@ -336,65 +365,66 @@ def dofwdcompose(cat1, cat2):
 
 
 def test_gfc():
-    ans1 = dofwdcompose(category.NP, category.S)
+    ans1 = do_genfwdcompose(category.NP, category.S)
     assert ans1 == []
 
-    ans2 = dofwdcompose(np_s, category.S)
+    ans2 = do_genfwdcompose(np_s, category.S)
     assert len(ans2) == 1
     assert str(ans2[0].cat) == 'NP'
     assert str(ans2[0].sem) == 'f(g)'
     assert ans2[0].why[0] == '>B0'
 
-    ans3 = dofwdcompose(np_s, s_np)
+    ans3 = do_genfwdcompose(np_s, s_np)
     assert len(ans3) == 1
     assert str(ans3[0].cat) == '(NP/NP)'
     assert str(ans3[0].sem) == 'λa.f(g(a))'
     assert ans3[0].why[0] == '>B1'
 
-    ans4 = dofwdcompose(np_s, s_np_s)
+    ans4 = do_genfwdcompose(np_s, s_np_s)
     assert len(ans4) == 1
     assert str(ans4[0].cat) == '((NP/NP)/S)'
     assert str(ans4[0].sem) == 'λa1.λa0.f(g(a1)(a0))'
     assert ans4[0].why[0] == '>B2'
 
-    ans5 = dofwdcompose(s_np_s, s_np)
+    ans5 = do_genfwdcompose(s_np_s, s_np)
     assert len(ans5) == 1
     assert str(ans5[0].cat == '((S/NP)/NP)')
     assert str(ans5[0].sem) == 'λa.f(g(a))'
     assert ans5[0].why[0] == '>B1'
 
-    ans6 = dofwdcompose(s_np__s_np, s_np_s)
+    ans6 = do_genfwdcompose(s_np__s_np, s_np_s)
     assert len(ans6) == 1
     assert str(ans6[0].cat) == '((S/NP)/S)'
     assert str(ans6[0].sem) == 'λa.f(g(a))'
     assert ans6[0].why[0] == '>B1'
 
-    ans7 = dofwdcompose(s_np__s_np, s_np_s_np)
+    ans7 = do_genfwdcompose(s_np__s_np, s_np_s_np)
     assert len(ans7) == 1
     assert str(ans7[0].cat) == '(((S/NP)/S)/NP)'
     assert str(ans7[0].sem) == 'λa1.λa0.f(g(a1)(a0))'
     assert ans7[0].why[0] == '>B2'
 
-    ans8 = dofwdcompose(s_np__s_np, s_np__s_np)
+    ans8 = do_genfwdcompose(s_np__s_np, s_np__s_np)
     assert len(ans8) == 1
     assert str(ans8[0].cat) == '((S/NP)/(S/NP))'
     assert str(ans8[0].sem) == 'λa.f(g(a))'
     assert ans8[0].why[0] == '>B1'
 
-    ans9 = dofwdcompose(s_np__s_np, s_np)
+    ans9 = do_genfwdcompose(s_np__s_np, s_np)
     assert len(ans9) == 1
     assert str(ans9[0].cat) == '(S/NP)'
     assert str(ans9[0].sem) == 'f(g)'
     assert ans9[0].why[0] == '>B0'
 
 
-"""
 parsingRules = [[],
                 [forward_application,
                  backward_application,
                  forward_composition]]
-"""
 
+
+"""
 parsingRules = [[typeraise_simple],
                 [backward_application,
                  generalized_forward_composition]]
+"""

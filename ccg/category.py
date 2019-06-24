@@ -1,136 +1,74 @@
 """
-Created on Tue May 30 14:48:25 2017
-
-@author: stone
+CCG Categories.
 """
 
 import pyrsistent
-
-
-class Metavar:
-    def __init__(self, hint: str):
-        self.__hint = hint
-
-    def __str__(self):
-        return str(f'M[{self.__hint}:{id(self)}]')
-
-    def subst(self, sub):
-        # return sub[self], or if that's not defined, just self
-        sub.setdefault(self, self)
-
-    # WARNING: We are assuming that metavariables
-    # can not be applied to neighboring arguments.
-    # (At least not before they
-    # have been instantiated and replaced)
-
-    @property
-    def dom(self):
-        return None
-
-    @property
-    def cod(self):
-        return None
-
-    @property
-    def slash(self):
-        return None
-
-    def unify(self, other, sub=pyrsistent.m()):
-        if self in sub:
-            return sub[self].unify(other, sub)
-        else:
-            # TODO: Implement an occurs check, to be safe?
-            upd = {self: other}
-            # replace all uses of this metavariable in the definition of other
-            #   metavariables, and then add the definition of this metavariable
-            #   to the resulting substitution.
-            return sub.transform([pyrsistent.ny],  # apply to all keys
-                                 lambda c: c.subst(upd)).update(upd)
-
-    def refresh(self):
-        return Metavar(self.__hint)
+import slash as s
+import semantic_types as sem
 
 
 class BaseCategory:
-    """An atomic grammatical category, such as NP"""
-    def __init__(self, name: str, attrs=pyrsistent.m()):
-        self.__name = name
+    """An atomic grammatical category, such as NP,
+       with optional fixed attributes"""
+
+    def __init__(self, cat, semty, attrs=pyrsistent.m()):
+        self.__cat = cat
         self.__attrs = attrs
+        self.__semty = semty
 
     def __str__(self):
-        if self.__attrs:
-            return self.__name + '[' + ','.join(self.__attrs.values()) + ']'
-        else:
-            return self.__name
-
-    def with_attr(self, attrs):
-        return BaseCategory(self.__name, attrs)
+        suffix = \
+            '[' + ', '.join(self.__attrs.values()) + ']' if self.attrs else ''
+        return self.cat + suffix
 
     def __repr__(self):
-        return f'BaseCategory({self.__name!r})'
+        if self.__attrs:
+            return \
+                (f'BaseCategory({self.__cat!r},{self.__semty!r},'
+                 f'{self.__attrs!r})')
+        else:
+            return f'BaseCategory({self.__cat!r},{self.__semty!r})'
+
+    @property
+    def cat(self):
+        return self.__cat
+
+    @property
+    def attrs(self):
+        return self.__attrs
+
+    @property
+    def semty(self):
+        return self.__semty
+
+    def with_parens(self):
+        return str(self)
 
     def __eq__(self, other):
-        return ((isinstance(other, BaseCategory) and
-                 self.__name == other.__name))
+        # XXX Ignores features!
+        return (self.cat == other.cat)
+
+    def __le__(self, other):
+        return self == other
 
     @property
-    def dom(self):
-        return None
-
-    @property
-    def cod(self):
-        return None
+    def spine(self):
+        return (self, [])
 
     @property
     def slash(self):
         return None
-
-    def subst(self, sub):
-        return self
-
-    def unify(self, other, sub=pyrsistent.m()):
-        if isinstance(other, Metavar):
-            return other.unify(self, sub)
-        elif isinstance(other, BaseCategory) and self.__name == other.__name:
-            # check the attributes can be merged.
-            for k, v in self.__attrs.items():
-                if k in other.__attrs and other.__attrs[k] != v:
-                    return None
-            return sub
-        else:
-            return None
-
-    def refresh(self):
-        return self
 
 
 class SlashCategory:
     """A complex grammatical category, with a given codomain, domain,
        and slash type"""
-    def __init__(self, slash, cod, dom, restr=None):
+
+    def __init__(self, cod, slash, dom):
+        assert isinstance(slash, s.Slash)
         self.__slash = slash
         self.__cod = cod
         self.__dom = dom
-        self.__restr = {} if restr is None else restr
-
-    def __eq__(self, other):
-        return (isinstance(other, SlashCategory) and
-                (self.__slash == other.__slash) and
-                (self.__cod == other.__cod) and
-                (self.__restr == other.__restr))
-
-    def __repr__(self):
-        return (f'SlashCategory({self.__slash!r},{self.__cod!r},' +
-                f'{self.__dom!r}' +
-                ("" if self.__restr == {} else f',{self.__restr}') +
-                f')')
-
-    def __str__(self):
-        return f'({self.__cod}{self.__slash}{self.__dom})'
-
-    @property
-    def dom(self):
-        return self.__dom
 
     @property
     def cod(self):
@@ -140,75 +78,75 @@ class SlashCategory:
     def slash(self):
         return self.__slash
 
-    def subst(self, sub):
-        cod = self.__cod.subst(sub)
-        dom = self.__dom.subst(sub)
-        if ((cod is self.__cod) and (dom is self.__dom)):
-            return self
-        else:
-            return SlashCategory(self.__slash, cod, dom, self.__restr)
+    @property
+    def dom(self):
+        return self.__dom
 
-    def unify(self, other, sub=pyrsistent.m()):
-        if (isinstance(other, Metavar)):
-            return other.unify(self, sub)
-        elif (isinstance(other, SlashCategory) and
-                self.__slash == other.__slash):
-            # Try to unify the subexpressions
-            sub1 = self.__cod.unify(other.__cod, sub)
-            if sub1 is None:
-                return None
-            sub2 = self.__dom.unify(other.__dom, sub1)
-            return sub2
-        else:
-            return None
+    def __eq__(self, other):
+        return (isinstance(other, SlashCategory) and
+                (self.slash == other.slash) and
+                (self.dom == other.dom) and
+                (self.cod == other.cod))
 
-    def refresh(self):
-        dom2 = self.__dom.refresh()
-        cod2 = self.__cod.refresh()
-        if self.__dom is not dom2 or self.__cod is not cod2:
-            return SlashCategory(self.__slash, dom2, cod2, self.__restr)
-        else:
-            return self
+    def __repr__(self):
+        return (f'SlashCategory({self.__cod!r},' +
+                f'{self.__slash!r},' +
+                f'{self.__dom!r}')
 
+    def with_parens(self):
+        return '(' + str(self) + ')'
 
-########################
-# SLASH-TYPE CONSTANTS #
-########################
+    def __str__(self):
+        return \
+            f'{self.cod.with_parens()}{self.slash}{self.dom.with_parens()}'
 
-LEFT = '\\'
-RIGHT = '/'
+    @property
+    def semty(self):
+        return sem.ArrowType(self.dom.semty, self.cod.semty)
 
+    def __le__(self, other):
+        return (isinstance(other, SlashCategory) and
+                self.slash <= other.slash and
+                self.dom >= other.dom and
+                self.cod <= other.cod)
 
-def invert(dir):
-    """return the opposite of the given direction"""
-    if dir == LEFT:
-        return RIGHT
-    if dir == RIGHT:
-        return LEFT
-    raise ValueError(f'bad direction {dir}')
+    @property
+    def spine(self):
+        h, t = self.cod.spine
+        return (h, [(self.slash, self.dom)] + t)
 
 
 ############################
 # USEFUL COMMON CATEGORIES #
 ############################
+NP = BaseCategory("NP", sem.ett)                   # noun phrase
+S = BaseCategory("S", sem.t)                     # sentence
+PP = BaseCategory("PP", sem.t)                   # prepositional phrase
+VBI = SlashCategory(S, s.LSLASH, NP)          # intransitive verb, S\NP
+VBT = SlashCategory(VBI, s.RSLASH, NP)       # transitive verb, (S\NP)/NP
+MODAL = SlashCategory(VBI, s.RSLASH, VBI)    # modal verb, (S\NP)/(S\NP)
 
-NP = BaseCategory("NP")                   # noun phrase
-S = BaseCategory("S")                     # sentence
-PP = BaseCategory("PP")                   # prepositional phrase
-VBI = SlashCategory(LEFT, S, NP)          # intransitive verb, S\NP
-VBT = SlashCategory("/", VBI, NP)       # transitive verb, (S\NP)/NP
-MODAL = SlashCategory(RIGHT, VBI, VBI)    # modal verb, (S\NP)/(S\NP)
 
-X = Metavar("X")
-COORD = SlashCategory("/,", SlashCategory("\\,", X, X), X)
+def mk_NP(attr):
+    return BaseCategory("NP", sem.ett, attr)
+
 
 SINGULAR = pyrsistent.m(num='sg')
 PLURAL = pyrsistent.m(num='pl')
 
-NPsg = BaseCategory("NP", SINGULAR)
-NPpl = BaseCategory("NP", PLURAL)
-VBI3 = SlashCategory(LEFT, S, NPsg)
-VBT3 = SlashCategory(RIGHT, VBI3, NP)
+NPsg = mk_NP(SINGULAR)
+NPpl = mk_NP(PLURAL)
+
+
+def mk_coord(cat):
+    return SlashCategory(
+        SlashCategory(cat, s.mk_lslash(s.APPLYONLY), cat),
+        s.mk_rslash(s.APPLYONLY),
+        cat)
+
+
+print(VBT)
+
 
 #####################
 # Simple unit tests #
@@ -220,40 +158,3 @@ def test_eq():
     assert VBI == SlashCategory(LEFT, S, NP)
     assert SlashCategory(LEFT, S, NP) == VBI
     assert MODAL.dom == MODAL.cod
-
-
-def test_subst():
-    m1 = Metavar("m1")
-    m2 = Metavar("m2")
-
-    cat1 = SlashCategory(RIGHT, m1, VBI)
-    cat2 = SlashCategory(RIGHT, VBI, VBI)
-    cat3 = SlashCategory(LEFT, VBI, VBI)
-    assert cat1 != cat2
-    assert cat2 != cat3
-
-    assert cat1.subst({m1: VBI}) == cat2
-    assert cat1.subst({m1: NP}) != cat2
-    assert cat1.subst({m1: VBI}) != cat3
-    assert cat2.subst({m1: VBI}) is cat2
-
-
-def test_unify():
-    m1 = Metavar("m1")
-    m2 = Metavar("m2")
-
-    cat1 = SlashCategory(RIGHT, m1, VBI)
-    cat2 = SlashCategory(RIGHT, VBI, VBI)
-    cat3 = SlashCategory(RIGHT, VBI, VBT)
-    cat4 = SlashCategory(RIGHT, m2, m2)
-
-    assert cat1.unify(cat2) is not None
-    assert cat1.unify(cat3) is None
-    assert cat1.unify(cat4) is not None
-    assert cat2.unify(cat3) is None
-    assert cat2.unify(cat4) is not None
-    assert cat3.unify(cat4) is None
-
-    assert cat1.unify(cat4, cat2.unify(cat4)) is not None
-    assert cat2.unify(cat1, cat1.unify(cat4))[m1] == VBI
-    assert cat2.unify(cat1, cat1.unify(cat4))[m2] == VBI

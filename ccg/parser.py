@@ -22,7 +22,7 @@ def pn(wd, attr=pyrsistent.m()):
     """Creates a NP entry for the lexicon, with the given proper name
        and the semantics of a constant
     """
-    return Item(NP.with_attr(attr), sem.Const(wd, 0), wd)
+    return Item(mk_NP(attr), sem.Const(wd, 0), wd)
 
 
 def intrans(vb):
@@ -31,17 +31,21 @@ def intrans(vb):
     """
     return Item(VBI, sem.Const(vb, 1), vb)
 
+
 def intrans3(vb):
     """Creates an intransitive-verb entry the lexicon, with the given name
        and the semantics of a constant (or equivalently, λx. vb x )
     """
-    return Item(VBI3, sem.Const(vb, 1), vb)
+    return Item(VBI, sem.Const(vb, 1), vb)
+
 
 def trans(vb):
     return Item(VBT, sem.Const(vb, 2), vb)
 
+
 def trans3(vb):
-    return Item(VBT3, sem.Const(vb, 2), vb)
+    return Item(VBT, sem.Const(vb, 2), vb)
+
 
 def modal(wd):
     """Creates a modal-verb entry in the lexicon, with the given name
@@ -49,17 +53,17 @@ def modal(wd):
     return Item(MODAL,
                 sem.Lam("f",
                         sem.Lam("x",
-                                sem.App(sem.Const(wd,1),
+                                sem.App(sem.Const(wd, 1),
                                         sem.App(sem.BoundVar(1),
                                                 sem.BoundVar(0))))),
                 wd)
 
 
-def coord(wd):
-    return Item(COORD,
+def coord(wd, cat):
+    return Item(mk_coord(cat),
                 sem.Lam("y",
                         sem.Lam("x",
-                                sem.App(sem.App(sem.Const(wd,2),
+                                sem.App(sem.App(sem.Const(wd, 2),
                                                 sem.BoundVar(0)),
                                         sem.BoundVar(1)))),
                 wd)
@@ -81,8 +85,8 @@ LEXICON = {'fido': [pn('fido', pyrsistent.m(num='sg'))],
            'defeated': [trans('defeated')],
            'germany': [pn('germany')],
            'will': [modal('will')],   # baldridge p. 24-25
-           'and': [coord('and')],
-           'xxx': [Item(X, sem.Const('xxx'), 'xxx')]}
+           'and': [coord('⊕', NP)],
+           }
 
 
 ###########
@@ -149,7 +153,7 @@ def parse(sentence):
         for i in range(nwds-tot):
             j = i+tot
             fillCell(chart, i, j)
-    #print(chart)
+    # print(chart)
     return chart[(0, nwds-1)]
 
 
@@ -180,6 +184,7 @@ def dump(sentence):
         print()
 
 
+dump('fido barks')
 # p('fido barks')
 # p('fido eats cheese')
 # p('will eat')

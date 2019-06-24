@@ -1,5 +1,6 @@
 """Representation of a [partial] parse."""
 
+import formatting
 import functools
 
 
@@ -33,17 +34,17 @@ class Item:
            semantic check is doing pointer equality."""
         return self.cat == other.cat and self.sem == other.sem
 
-    def subst(self, sub):
-        cat2 = self.cat.subst(sub)
-        sem2 = self.sem
-        why2 = self.why
-        if (isinstance(self.why, list)): 
-            why2 = [x.subst(sub) if isinstance(x, Item) else x
-                    for x in self.why
-                   ]
-        else:
-            why2 = self.why
-        return Item(cat2, sem2, why2)
+    # def subst(self, sub):
+    #     cat2 = self.cat.subst(sub)
+    #     sem2 = self.sem
+    #     why2 = self.why
+    #     if (isinstance(self.why, list)):
+    #         why2 = [x.subst(sub) if isinstance(x, Item) else x
+    #                 for x in self.why
+    #                 ]
+    #     else:
+    #         why2 = self.why
+    #     return Item(cat2, sem2, why2)
 
     def display(self):
         """Prints the parse as a pretty tree"""
@@ -56,13 +57,13 @@ class Item:
            code is that all lines will have the same length
            (space padded, if necessary)"""
 
-        bottom_lines = [str(self.cat), str(self.sem)]
+        bottom_lines = [str(self.cat), str(self.cat.semty), str(self.sem)]
 
         if isinstance(self.why, str):
             # This is just a single input word. Report the
             #   category and semantics (which came from the lexicon).
             lines = [self.why] + bottom_lines
-            return Item.centerlines(lines)
+            return formatting.center_lines(lines)
 
         elif isinstance(self.why, list):
             # This is a unary, binary, etc. rule application
@@ -71,7 +72,8 @@ class Item:
 
             justifications = [item.toStrings() for item in self.why[1:]]
 
-            top_lines = functools.reduce(Item.mergeLines, justifications)
+            top_lines = functools.reduce(
+                formatting.merge_lines, justifications)
             top_width = max(len(l) for l in top_lines)
 
             bottom_width = max(len(l) for l in bottom_lines)
@@ -80,7 +82,8 @@ class Item:
             rule_length = max(MINIMUM_RULE_LENGTH, top_width, bottom_width)
             rule_line = '-' * rule_length
 
-            lines = Item.centerlines(top_lines + [rule_line] + bottom_lines)
+            lines = formatting.center_lines(
+                top_lines + [rule_line] + bottom_lines)
 
             # Add justification, keeping all lines the same length
             out = []
@@ -94,7 +97,7 @@ class Item:
 
         # If we got this far, there was no valid justification
         lines = ["???"] + bottom_lines
-        return Item.centerlines(lines)
+        return formatting.centerlines(lines)
 
     def rule(self):
         """Return the rule name from the 'why' part, if any"""
@@ -102,33 +105,3 @@ class Item:
             return self.why[0]
         else:
             return ''
-
-    @staticmethod
-    def centerlines(lines):
-        """Given a list of lines, center the lines relative to the longest.
-           The resulting strings are all the same length, since they will
-           be space-padded on both sides."""
-        width = max(len(l) for l in lines)
-        return [' ' * ((width-len(l)) // 2) + l + ' ' * ((width+1-len(l)) // 2)
-                for l in lines]
-
-    @staticmethod
-    def mergeLines(lines1, lines2):
-        """Merges the given lines into a single "two-column" format.
-           Assumes all the lines in a list have the same fixed length
-             (though the two lists can have different fixed lengths)
-        """
-        len1 = len(lines1)
-        wid1 = len(lines1[0]) if len1 > 0 else 0
-        len2 = len(lines2)
-        wid2 = len(lines2[0]) if len2 > 0 else 0
-        minlen = min(len1, len2)
-
-        # All the output where we can take lines from both lists
-        part1 = [lines1[i] + '  ' + lines2[i] for i in range(minlen)]
-        # Non-empty if the second list was longer
-        part2 = [' ' * (wid1+2) + lines2[i] for i in range(minlen, len2)]
-        # Non-empty if the first list was longer
-        part3 = [lines1[i] + ' ' * (wid2+2) for i in range(minlen, len1)]
-
-        return part1 + part2 + part3
