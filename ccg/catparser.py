@@ -85,7 +85,7 @@ t_ignore = ' \t'
 
 
 def t_comment(t):
-    '\#[^\\n]*'
+    r'\#[^\\n]*'
     pass
 
 # Error handling rule

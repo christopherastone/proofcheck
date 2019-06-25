@@ -14,3 +14,4 @@ defeated : (S \ NP) / NP
 will : (S \ NP) / (S \ NP)
 alice : NP[sg]
 bob : NP[sg]
+sat : (S \ NP) / "down" / NP

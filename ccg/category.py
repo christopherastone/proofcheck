@@ -63,7 +63,8 @@ class BaseCategory:
 
 
 class SingletonCategory:
-    """A category containing a specific word(s) with no independent semantics"""
+    """A category containing a specific word(s) with
+       no interesting semantics"""
 
     def __init__(self, word):
         self.__word = word

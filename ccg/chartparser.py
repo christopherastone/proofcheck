@@ -104,7 +104,8 @@ def mkChart(wds, lexicon=LEXICON):
         # add new items to single-word lists, but we don't want to
         # permanently change the static dictionary.
         word = wds[i]
-        chart[(i, i)] = [Item(SingletonCategory(word), sem.Const('_', 0), word)]
+        chart[(i, i)] = \
+            [Item(SingletonCategory(word), sem.Const('_', 0), word)]
         for info in lexicon[wds[i]]:
             if isinstance(info, Item):
                 chart[(i, i)].append(info)
