@@ -6,6 +6,8 @@ Created on Fri Jun  2 15:50:07 2017
 @author: stone
 """
 
+import pyrsistent
+
 
 class Const:
     def __init__(self, nm: str, arity=0):
@@ -13,10 +15,10 @@ class Const:
         self.__arity = arity
 
     def toString(self, stack=[], applied=False):
-        if applied or (self.__arity == 0):
-            return self.__name
-        else:
-            return self.__name + "#" + str(self.__arity)
+        # if applied or (self.__arity == 0):
+        return self.__name
+        # else:
+        #     return self.__name + "#" + str(self.__arity)
 
     def __str__(self):
         return self.toString()
@@ -36,6 +38,42 @@ class Const:
 
     def reduce(self):
         return self
+
+    def deBruijn(self, numbering):
+        return self
+
+
+class FreeVar:
+    def __init__(self, nm: str):
+        self.__name = nm
+
+    def toString(self, stack=[], applied=False):
+        return self.__name
+
+    def __str__(self):
+        return self.toString()
+
+    def __repr__(self):
+        return f'FreeVar({self.__name!r})'
+
+    def __eq__(self, other):
+        return (isinstance(other, Const) and
+                self.__name == other.__name)
+
+    def shift(self, delta, base=0):
+        return self
+
+    def subst(self, k, e):
+        return self
+
+    def reduce(self):
+        return self
+
+    def deBruijn(self, numbering=pyrsistent.m()):
+        if self.__name in numbering:
+            return BoundVar(len(numbering) - numbering[self.__name] - 1)
+        else:
+            return self
 
 
 class BoundVar:
@@ -71,6 +109,9 @@ class BoundVar:
             return self
 
     def reduce(self):
+        return self
+
+    def deBruijn(self, numbering=pyrsistent.m()):
         return self
 
 
@@ -122,6 +163,10 @@ class App:
     def right(self):
         return self.__right
 
+    def deBruijn(self, numbering=pyrsistent.m()):
+        return App(self.left.deBruijn(numbering),
+                   self.right.deBruijn(numbering))
+
 
 class Lam:
     def __init__(self, hint, body):
@@ -159,6 +204,11 @@ class Lam:
     def body(self):
         return self.__body
 
+    def deBruijn(self, numbering=pyrsistent.m()):
+        varname = self.__hint
+        return Lam(varname,
+                   self.body.deBruijn(numbering.set(varname, len(numbering))))
+
 
 def test_beta():
     assert (App(Lam("x", BoundVar(0)), Const("c")).reduce() == Const("c"))
@@ -171,3 +221,13 @@ def test_beta():
     assert Const("c") != Const("d")
     assert Lam("x", BoundVar(0)) != Lam("x", Const("x"))
     assert BoundVar(0) != BoundVar(1)
+
+
+def test_deBruijn():
+    assert Lam("x", FreeVar("x")).deBruijn() == Lam("x", BoundVar(0))
+    assert Lam
+
+
+if __name__ == '__main__':
+    test_beta()
+    test_deBruijn()

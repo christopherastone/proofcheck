@@ -4,6 +4,7 @@ import ply.lex as lex
 import ply.yacc as yacc
 import pyrsistent
 import semantic_types
+import semantics
 import slash
 
 ###########
@@ -21,7 +22,8 @@ tokens = (
     'SLASHDOT', 'SLASHO', 'SLASHX', 'SLASHBANG', 'SLASHSTAR',
     'COLON',
     'ARROW',
-    'QUOTEDSTRING'
+    'QUOTEDSTRING',
+    'SEMI'
     #    'ENDLINES'
 )
 
@@ -38,6 +40,7 @@ t_DRSLASH = '//'
 t_DLSLASH = '\\\\'
 t_COLON = ':'
 t_ARROW = '->'
+t_SEMI = ';'
 
 
 def t_SLASHO(t):
@@ -72,10 +75,16 @@ def t_QUOTEDSTRING(t):
 # Define a rule so we can track line numbers
 
 
+# def t_ENDLINES(t):
+#     r'\n+'
+#     t.lexer.lineno += len(t.value)
+#     t.value = '\n'
+#     return t
+
 def t_newline(t):
     r'\n+'
     t.lexer.lineno += len(t.value)
-    pass  # return t
+    pass
 
 
 # A string containing ignored characters (spaces and tabs)
@@ -103,18 +112,24 @@ semantic_type_map = {}
 word_map = collections.defaultdict(list)
 
 
-def p_vocab_0a(p):
+def p_vocab_0(p):
     '''vocab : '''
     p[0] = 0
 
 
 def p_vocab_1(p):
-    '''vocab : vocab WORD COLON cats '''
-    word_map[p[2]] += p[4]
+    '''vocab : vocab WORD COLON cats'''
+    word_map[p[2]] += [(cat, None) for cat in p[4]]
     p[0] = 0
 
 
 def p_vocab_2(p):
+    '''vocab : vocab WORD COLON cat EQ sem SEMI'''
+    word_map[p[2]] += [(p[4], p[6].deBruijn())]
+    p[0] = 0
+
+
+def p_vocab_3(p):
     '''vocab : vocab WORD COLON COLON semty'''
     assert(p[2] not in semantic_type_map)
     semantic_type_map[p[2]] = p[5]
@@ -232,6 +247,45 @@ def p_semty_2(p):
     '''semty : asemty ARROW semty'''
     p[0] = semantic_types.ArrowType(p[1], p[3])
 
+
+def p_atsem_1(p):
+    '''atsem : WORD'''
+    if p[1][0].isupper():
+        p[0] = semantics.Const(p[1], 0)
+    else:
+        p[0] = semantics.FreeVar(p[1])
+
+
+def p_atsem_2(p):
+    '''atsem : LPAREN sem RPAREN'''
+    p[0] = p[1]
+
+
+def p_path_1(p):
+    '''path : atsem'''
+    p[0] = p[1]
+
+
+def p_path_2(p):
+    '''path : path atsem'''
+    p[0] = semantics.App(p[1], p[2])
+
+
+def p_sem_1(p):
+    '''sem : path'''
+    p[0] = p[1]
+
+
+def p_sem_2(p):
+    '''sem : LSLASH WORD ARROW sem'''
+    p[0] = semantics.Lam(p[2], p[4])
+
+
+def p_sem_3(p):
+    '''sem : path LSLASH WORD ARROW sem'''
+    p[0] = semantics.App(p[1], semantics.Lam(p[3], p[5]))
+
+
 # Error rule for syntax errors
 
 
@@ -272,12 +326,14 @@ if __name__ == '__main__':
 
     data = '''
       S :: t
+      N :: e -> t
       FOO : (S \\x S) / S
-      BAR : N / "up"
+      BAR : N / "up" = Baz;
     '''
     print(data)
 
     # Give the lexer some input
+    lexer.lineno = 0
     lexer.input(data)
 
     # Tokenize
@@ -296,6 +352,6 @@ if __name__ == '__main__':
         print(f'{cat} has type {sem}')
     print()
     for word, cats in wds.items():
-        for cat in cats:
-            print(f'{word} has category {cat}')
+        for cat, sem in cats:
+            print(f'{word} has category {cat} and semantics {sem}')
     print()
