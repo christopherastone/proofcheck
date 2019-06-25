@@ -108,10 +108,11 @@ class App:
         return App(self.__left.subst(k, e), self.__right.subst(k, e))
 
     def reduce(self):
+        # if self.__right == Const("_", 0):
+        #     return self.__left.reduce()
         if isinstance(self.__left, Lam):
             return beta(self.__left.body, self.__right).reduce()
-        else:
-            return self
+        return self
 
     @property
     def left(self):

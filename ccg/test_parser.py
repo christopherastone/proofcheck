@@ -32,6 +32,7 @@ def test_lexicon():
     lexicon = catparser.do_parse(lexicon_data)
     chartparser.p('fido will eat cheese', lexicon)
     chartparser.p('bob defeated alice', lexicon)
+    chartparser.dump('alice sat bob down', lexicon)
 
 
 if __name__ == '__main__':

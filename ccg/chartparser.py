@@ -103,14 +103,15 @@ def mkChart(wds, lexicon=LEXICON):
         # We clone the lexicon list because unary promotion rules can
         # add new items to single-word lists, but we don't want to
         # permanently change the static dictionary.
-        chart[(i, i)] = []
+        word = wds[i]
+        chart[(i, i)] = [Item(SingletonCategory(word), sem.Const('_', 0), word)]
         for info in lexicon[wds[i]]:
             if isinstance(info, Item):
                 chart[(i, i)].append(info)
             else:
                 cat = info
                 chart[(i, i)].append(
-                    Item(cat, sem.Const(wds[i], cat.semty.arity), wds[i]))
+                    Item(cat, sem.Const(word, cat.semty.arity), word))
     return chart
 
 

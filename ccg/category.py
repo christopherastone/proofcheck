@@ -4,7 +4,8 @@ CCG Categories.
 
 import pyrsistent
 import slash as s
-import semantic_types as sem
+import semantic_types
+import semantics
 
 
 class BaseCategory:
@@ -46,7 +47,8 @@ class BaseCategory:
 
     def __eq__(self, other):
         # XXX Ignores features!
-        return (self.cat == other.cat)
+        return (isinstance(other, BaseCategory) and
+                self.cat == other.cat)
 
     def __le__(self, other):
         return self == other
@@ -58,6 +60,45 @@ class BaseCategory:
     @property
     def slash(self):
         return None
+
+
+class SingletonCategory:
+    """A category containing a specific word(s) with no independent semantics"""
+
+    def __init__(self, word):
+        self.__word = word
+
+    def __str__(self):
+        return f'"{self.word}"'
+
+    def __repr__(self):
+        return f'SingletonCategory({self.word!r})'
+
+    @property
+    def word(self):
+        return self.__word
+
+    def with_parens(self):
+        return str(self)
+
+    def __eq__(self, other):
+        return (isinstance(other, SingletonCategory) and
+                self.word == other.word)
+
+    def __le__(self, other):
+        return self == other
+
+    @property
+    def spine(self):
+        return (self, [])
+
+    @property
+    def slash(self):
+        return None
+
+    @property
+    def semty(self):
+        return semantic_types.BaseType("1")
 
 
 class SlashCategory:
@@ -102,7 +143,10 @@ class SlashCategory:
 
     @property
     def semty(self):
-        return sem.ArrowType(self.dom.semty, self.cod.semty)
+        if self.dom.semty:
+            return semantic_types.ArrowType(self.dom.semty, self.cod.semty)
+        else:
+            return self.cod.semty
 
     def __le__(self, other):
         return (isinstance(other, SlashCategory) and
@@ -119,16 +163,17 @@ class SlashCategory:
 ############################
 # USEFUL COMMON CATEGORIES #
 ############################
-NP = BaseCategory("NP", sem.ett)                   # noun phrase
-S = BaseCategory("S", sem.t)                     # sentence
-PP = BaseCategory("PP", sem.t)                   # prepositional phrase
+NP = BaseCategory("NP", semantic_types.ett)                   # noun phrase
+S = BaseCategory("S", semantic_types.t)                     # sentence
+# prepositional phrase
+PP = BaseCategory("PP", semantic_types.t)
 VBI = SlashCategory(S, s.LSLASH, NP)          # intransitive verb, S\NP
 VBT = SlashCategory(VBI, s.RSLASH, NP)       # transitive verb, (S\NP)/NP
 MODAL = SlashCategory(VBI, s.RSLASH, VBI)    # modal verb, (S\NP)/(S\NP)
 
 
 def mk_NP(attr):
-    return BaseCategory("NP", sem.ett, attr)
+    return BaseCategory("NP", semantic_types.ett, attr)
 
 
 SINGULAR = pyrsistent.m(num='sg')

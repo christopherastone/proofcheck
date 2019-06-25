@@ -97,7 +97,7 @@ class Item:
 
         # If we got this far, there was no valid justification
         lines = ["???"] + bottom_lines
-        return formatting.centerlines(lines)
+        return formatting.center_lines(lines)
 
     def rule(self):
         """Return the rule name from the 'why' part, if any"""

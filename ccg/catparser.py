@@ -21,6 +21,7 @@ tokens = (
     'SLASHDOT', 'SLASHO', 'SLASHX', 'SLASHBANG', 'SLASHSTAR',
     'COLON',
     'ARROW',
+    'QUOTEDSTRING'
     #    'ENDLINES'
 )
 
@@ -60,6 +61,12 @@ t_SLASHDOT = r'[\\/]\.'
 
 def t_WORD(t):
     r'[A-Za-z][A-Za-z0-9_]*'
+    return t
+
+
+def t_QUOTEDSTRING(t):
+    r'\"[^\"]*?\"'
+    t.value = t.value[1:-1]
     return t
 
 # Define a rule so we can track line numbers
@@ -130,18 +137,18 @@ def p_cat_0(p):
 
 
 def p_cat_1(p):
-    '''cat : atcat LSLASH cat
-           | atcat RSLASH cat'''
+    '''cat : cat LSLASH atcat
+           | cat RSLASH atcat'''
     p[0] = category.SlashCategory(
         p[1], slash.Slash(p[2], slash.ANYRULE), p[3])
 
 
 def p_cat_2(p):
-    '''cat : atcat SLASHDOT cat
-           | atcat SLASHBANG cat
-           | atcat SLASHO cat
-           | atcat SLASHX cat
-           | atcat SLASHSTAR cat'''
+    '''cat : cat SLASHDOT atcat
+           | cat SLASHBANG atcat
+           | cat SLASHO atcat
+           | cat SLASHX atcat
+           | cat SLASHSTAR atcat'''
     if p[2][1] == '.':
         sl = slash.Slash(p[2][0], slash.ANYRULE)
     elif p[2][1] == '*':
@@ -179,6 +186,11 @@ def p_atcat_3(p):
         print("UNRECOGNIZED CATEGORY", cat)
         semantic_type_map[cat] = None
     p[0] = category.BaseCategory(cat, semantic_type_map[cat], p[3])
+
+
+def p_atcat_4(p):
+    '''atcat : QUOTEDSTRING'''
+    p[0] = category.SingletonCategory(p[1])
 
 
 def p_attr_1(p):
@@ -261,8 +273,9 @@ if __name__ == '__main__':
     data = '''
       S :: t
       FOO : (S \\x S) / S
-      BAR : N / N
+      BAR : N / "up"
     '''
+    print(data)
 
     # Give the lexer some input
     lexer.input(data)
