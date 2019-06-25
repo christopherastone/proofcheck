@@ -1,0 +1,16 @@
+NP :: (e -> t) -> t
+S :: t
+
+fido : NP[sg]
+cheese : NP
+geese : NP[pl]
+barks : S \ NP
+eats : S \ NP[sg], (S \ NP[sg]) / NP
+eat : S \ NP[pl], (S \ NP[pl]) / NP
+sees : (S \ NP[sg]) / NP
+see : (S \ NP[pl]) / NP
+brazil : NP
+defeated : (S \ NP) / NP
+will : (S \ NP) / (S \ NP)
+alice : NP[sg]
+bob : NP[sg]

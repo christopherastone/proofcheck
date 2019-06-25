@@ -94,7 +94,7 @@ LEXICON = {'fido': [pn('fido', pyrsistent.m(num='sg'))],
 ###########
 
 
-def mkChart(wds):
+def mkChart(wds, lexicon=LEXICON):
     """Creates an initial chart for the given list of words.
        It starts out near-empty, with just the
        lexicon information for each word/leaf."""
@@ -103,7 +103,14 @@ def mkChart(wds):
         # We clone the lexicon list because unary promotion rules can
         # add new items to single-word lists, but we don't want to
         # permanently change the static dictionary.
-        chart[(i, i)] = LEXICON[wds[i]][:]
+        chart[(i, i)] = []
+        for info in lexicon[wds[i]]:
+            if isinstance(info, Item):
+                chart[(i, i)].append(info)
+            else:
+                cat = info
+                chart[(i, i)].append(
+                    Item(cat, sem.Const(wds[i], cat.semty.arity), wds[i]))
     return chart
 
 
@@ -143,11 +150,11 @@ def words(s: str):
     return re.sub(r'[^A-za-z]', ' ', s).lower().split()
 
 
-def parse(sentence):
+def parse(sentence, lexicon=LEXICON):
     """parse the given string and return all complete parses"""
     wds = words(sentence)
     nwds = len(wds)
-    chart = mkChart(wds)
+    chart = mkChart(wds, lexicon)
     # print(f'starting chart = {chart}')
     for tot in range(0, nwds):
         for i in range(nwds-tot):
@@ -157,20 +164,20 @@ def parse(sentence):
     return chart[(0, nwds-1)]
 
 
-def p(sentence):
+def p(sentence, lexicon=LEXICON):
     """parse the given string, and pretty-print all complete parses"""
-    items = parse(sentence)
+    items = parse(sentence, lexicon)
     for item in items:
         print()
         item.display()
         print()
 
 
-def dump(sentence):
+def dump(sentence, lexicon=LEXICON):
     """parse the given string and return all complete parses"""
     wds = words(sentence)
     nwds = len(wds)
-    chart = mkChart(wds)
+    chart = mkChart(wds, lexicon)
     # print(f'starting chart = {chart}')
     for tot in range(0, nwds):
         for i in range(nwds-tot):
@@ -184,9 +191,10 @@ def dump(sentence):
         print()
 
 
-dump('fido barks')
-# p('fido barks')
-# p('fido eats cheese')
-# p('will eat')
-# p('fido will eat cheese')
-# p('xxx barks')
+if __name__ == '__main__':
+    dump('fido barks')
+    # p('fido barks')
+    # p('fido eats cheese')
+    # p('will eat')
+    # p('fido will eat cheese')
+    # p('xxx barks')

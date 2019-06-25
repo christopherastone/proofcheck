@@ -8,7 +8,7 @@ Created on Fri Jun  2 15:50:07 2017
 
 
 class Const:
-    def __init__(self, nm: str, arity=1):
+    def __init__(self, nm: str, arity=0):
         self.__name = nm
         self.__arity = arity
 

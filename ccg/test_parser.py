@@ -7,7 +7,8 @@ Created on Tue May 30 14:13:01 2017
 """
 
 import category
-import parser
+import chartparser
+import catparser
 
 
 def test_words():
@@ -24,3 +25,14 @@ def test_parse():
     assert len(ans) == 1
     assert ans[0].cat == category.VBI
     assert str(ans[0].sem) == "λx.will(eat(x)(cheese))"
+
+
+def test_lexicon():
+    lexicon_data = open('lexicon.txt').read()
+    lexicon = catparser.do_parse(lexicon_data)
+    chartparser.p('fido will eat cheese', lexicon)
+    chartparser.p('bob defeated alice', lexicon)
+
+
+if __name__ == '__main__':
+    test_lexicon()

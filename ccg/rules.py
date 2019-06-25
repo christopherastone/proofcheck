@@ -19,7 +19,7 @@ normalize = True
 
 
 def forward_application(item1, item2, dest):
-    (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
+    cat1, sem1, cat2, sem2 = deconstruct(item1, item2)
     if not (cat1.slash and cat1.slash <= slash.RSLASH):
         return False  # not a function, or not looking rightwards
 
@@ -41,20 +41,14 @@ def backward_application(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
 
     if not (cat2.slash and cat2.slash <= slash.LSLASH):
-        print("oops 1")
         return False  # not a function, or not looking leftwards
 
     if not (cat1 <= cat2.dom):
-        print("oops 2")
-        print("cat1 = ", cat1, repr(cat1))
-        print("cat2.dom = ", cat2.dom, repr(cat2.dom))
         return False  # application category mismatch
 
-    if normalize and (item2.why[0] == '<' or
-                      item2.why[0].startswith('<B') or
-                      item2.why[0] == '<T'):
-        print("oops 3")
-
+    if normalize and (  # item2.why[0] == '<' or
+            item2.why[0].startswith('<B') or
+            item2.why[0] == '<T'):
         return False  # this would lead to redundancy
 
     dest += [Item(cat2.cod,
