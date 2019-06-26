@@ -22,9 +22,7 @@ tokens = (
     'SLASHDOT', 'SLASHO', 'SLASHX', 'SLASHBANG', 'SLASHSTAR',
     'COLON',
     'ARROW',
-    'QUOTEDSTRING',
-    'SEMI'
-    #    'ENDLINES'
+    'QUOTEDSTRING'
 )
 
 # Regular expression rules for simple tokens
@@ -40,7 +38,6 @@ t_DRSLASH = '//'
 t_DLSLASH = '\\\\'
 t_COLON = ':'
 t_ARROW = '->'
-t_SEMI = ';'
 
 
 def t_SLASHO(t):
@@ -118,21 +115,21 @@ def p_vocab_0(p):
 
 
 def p_vocab_1(p):
-    '''vocab : vocab WORD COLON cats'''
-    word_map[p[2]] += [(cat, None) for cat in p[4]]
+    '''vocab : WORD COLON cats'''
+    word_map[p[1]] += [(cat, None) for cat in p[3]]
     p[0] = 0
 
 
 def p_vocab_2(p):
-    '''vocab : vocab WORD COLON cat EQ sem SEMI'''
-    word_map[p[2]] += [(p[4], p[6].deBruijn())]
+    '''vocab : WORD COLON cat EQ sem'''
+    word_map[p[1]] += [(p[3], p[5].deBruijn())]
     p[0] = 0
 
 
 def p_vocab_3(p):
-    '''vocab : vocab WORD COLON COLON semty'''
+    '''vocab : WORD COLON COLON semty'''
     assert(p[2] not in semantic_type_map)
-    semantic_type_map[p[2]] = p[5]
+    semantic_type_map[p[1]] = p[4]
     p[0] = 0
 
 
@@ -250,10 +247,7 @@ def p_semty_2(p):
 
 def p_atsem_1(p):
     '''atsem : WORD'''
-    if p[1][0].isupper():
-        p[0] = semantics.Const(p[1], 0)
-    else:
-        p[0] = semantics.FreeVar(p[1])
+    p[0] = semantics.Const(p[1], 0)
 
 
 def p_atsem_2(p):
@@ -309,14 +303,17 @@ parser = yacc.yacc(write_tables=False)
 ###########
 
 
-def do_parse(input):
+def do_parses(inputs):
     global semantic_type_map, word_map
 
     lexer.lineno = 0
     semantic_type_map = {}
     word_map = collections.defaultdict(list)
 
-    parser.parse(input)
+    for input in inputs:
+        parser.parse(input)
+        lexer.lineno += 1
+
     return word_map
 
 
@@ -328,7 +325,7 @@ if __name__ == '__main__':
       S :: t
       N :: e -> t
       FOO : (S \\x S) / S
-      BAR : N / "up" = Baz;
+      BAR : N / "up" = baz;
     '''
     print(data)
 
@@ -346,7 +343,7 @@ if __name__ == '__main__':
     print("\nPARSING TEST")
     print("------------")
 
-    wds = do_parse(data)
+    wds = do_parses(data.splitlines())
     print()
     for cat, sem in semantic_type_map.items():
         print(f'{cat} has type {sem}')

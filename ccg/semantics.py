@@ -39,41 +39,15 @@ class Const:
     def reduce(self):
         return self
 
-    def deBruijn(self, numbering):
-        return self
-
-
-class FreeVar:
-    def __init__(self, nm: str):
-        self.__name = nm
-
-    def toString(self, stack=[], applied=False):
-        return self.__name
-
-    def __str__(self):
-        return self.toString()
-
-    def __repr__(self):
-        return f'FreeVar({self.__name!r})'
-
-    def __eq__(self, other):
-        return (isinstance(other, Const) and
-                self.__name == other.__name)
-
-    def shift(self, delta, base=0):
-        return self
-
-    def subst(self, k, e):
-        return self
-
-    def reduce(self):
-        return self
-
     def deBruijn(self, numbering=pyrsistent.m()):
         if self.__name in numbering:
             return BoundVar(len(numbering) - numbering[self.__name] - 1)
         else:
             return self
+
+    @property
+    def spine(self):
+        return (self, [])
 
 
 class BoundVar:
@@ -113,6 +87,10 @@ class BoundVar:
 
     def deBruijn(self, numbering=pyrsistent.m()):
         return self
+
+    @property
+    def spine(self):
+        return (self, [])
 
 
 def beta(body, arg):
@@ -167,6 +145,11 @@ class App:
         return App(self.left.deBruijn(numbering),
                    self.right.deBruijn(numbering))
 
+    @property
+    def spine(self):
+        hd, tl = self.left.spine
+        return (hd, tl + [self.right])
+
 
 class Lam:
     def __init__(self, hint, body):
@@ -208,6 +191,10 @@ class Lam:
         varname = self.__hint
         return Lam(varname,
                    self.body.deBruijn(numbering.set(varname, len(numbering))))
+
+    @property
+    def spine(self):
+        return (self, [])
 
 
 def test_beta():

@@ -110,7 +110,6 @@ def mkChart(wds, lexicon=LEXICON):
             if isinstance(info, Item):
                 chart[(i, i)].append(info)
             else:
-                print(wds[i], info)
                 cat, sem = info
                 sem = sem if sem else semantics.Const(word, cat.semty.arity)
                 chart[(i, i)].append(Item(cat, sem, word))

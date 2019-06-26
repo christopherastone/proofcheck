@@ -10,8 +10,8 @@ eat : S \ NP[pl], (S \ NP[pl]) / NP
 sees : (S \ NP[sg]) / NP
 see : (S \ NP[pl]) / NP
 brazil : NP
-defeated : (S \ NP) / NP = \ x -> \ y -> Defeated y x;
+defeated : (S \ NP) / NP = \ x -> \ y -> defeated y x;
 will : (S \ NP) / (S \ NP)
 alice : NP[sg]
 bob : NP[sg]
-sat : (S \ NP) / "down" / NP = \ x -> \ y -> \ z -> SatDown z x;
+sat : (S \ NP) / "down" / NP = \ x -> \ y -> \ z -> satDown z x;
