@@ -16,10 +16,6 @@ class BaseType:
         return (isinstance(other, BaseType) and
                 self.name == other.name)
 
-    @property
-    def arity(self):
-        return 0
-
 
 class ArrowType:
     def __init__(self, dom, cod):
@@ -47,10 +43,6 @@ class ArrowType:
         return (isinstance(other, ArrowType) and
                 self.dom == other.dom and
                 self.cod == other.cod)
-
-    @property
-    def arity(self):
-        return 1 + self.cod.arity
 
 
 e = BaseType('e')

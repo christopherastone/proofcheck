@@ -22,29 +22,29 @@ def pn(wd, attr=pyrsistent.m()):
     """Creates a NP entry for the lexicon, with the given proper name
        and the semantics of a constant
     """
-    return Item(mk_NP(attr), semantics.Const(wd, 0), wd)
+    return Item(mk_NP(attr), semantics.Const(wd), wd)
 
 
 def intrans(vb):
     """Creates an intransitive-verb entry the lexicon, with the given name
        and the semantics of a constant (or equivalently, λx. vb x )
     """
-    return Item(VBI, semantics.Const(vb, 1), vb)
+    return Item(VBI, semantics.Const(vb), vb)
 
 
 def intrans3(vb):
     """Creates an intransitive-verb entry the lexicon, with the given name
        and the semantics of a constant (or equivalently, λx. vb x )
     """
-    return Item(VBI, semantics.Const(vb, 1), vb)
+    return Item(VBI, semantics.Const(vb), vb)
 
 
 def trans(vb):
-    return Item(VBT, semantics.Const(vb, 2), vb)
+    return Item(VBT, semantics.Const(vb), vb)
 
 
 def trans3(vb):
-    return Item(VBT, semantics.Const(vb, 2), vb)
+    return Item(VBT, semantics.Const(vb), vb)
 
 
 def modal(wd):
@@ -53,7 +53,7 @@ def modal(wd):
     return Item(MODAL,
                 semantics.Lam("f",
                               semantics.Lam("x",
-                                            semantics.App(semantics.Const(wd, 1),
+                                            semantics.App(semantics.Const(wd),
                                                           semantics.App(semantics.BoundVar(1),
                                                                         semantics.BoundVar(0))))),
                 wd)
@@ -63,7 +63,7 @@ def coord(wd, cat):
     return Item(mk_coord(cat),
                 semantics.Lam("y",
                               semantics.Lam("x",
-                                            semantics.App(semantics.App(semantics.Const(wd, 2),
+                                            semantics.App(semantics.App(semantics.Const(wd),
                                                                         semantics.BoundVar(0)),
                                                           semantics.BoundVar(1)))),
                 wd)
@@ -75,7 +75,7 @@ def coord(wd, cat):
 
 LEXICON = {'fido': [pn('fido', pyrsistent.m(num='sg'))],
            'cheese': [pn('cheese')],
-           'geese': [Item(NPpl, semantics.Const('geese', 0), 'geese')],
+           'geese': [Item(NPpl, semantics.Const('geese'), 'geese')],
            'barks': [intrans('barks')],
            'eats': [intrans3('eats'), trans3('eats')],
            'eat': [intrans('eat'), trans('eat')],
@@ -105,13 +105,13 @@ def mkChart(wds, lexicon=LEXICON):
         # permanently change the static dictionary.
         word = wds[i]
         chart[(i, i)] = \
-            [Item(SingletonCategory(word), semantics.Const('_', 0), word)]
+            [Item(SingletonCategory(word), semantics.Const('_'), word)]
         for info in lexicon[wds[i]]:
             if isinstance(info, Item):
                 chart[(i, i)].append(info)
             else:
                 cat, sem = info
-                sem = sem if sem else semantics.Const(word, cat.semty.arity)
+                sem = sem if sem else semantics.Const(word)
                 chart[(i, i)].append(Item(cat, sem, word))
     return chart
 

@@ -10,25 +10,25 @@ import pyrsistent
 
 
 class Const:
-    def __init__(self, nm: str, arity=0):
+    def __init__(self, nm: str):
         self.__name = nm
-        self.__arity = arity
+
+    @property
+    def name(self):
+        return self.__name
 
     def toString(self, stack=[], applied=False):
-        # if applied or (self.__arity == 0):
         return self.__name
-        # else:
-        #     return self.__name + "#" + str(self.__arity)
 
     def __str__(self):
         return self.toString()
 
     def __repr__(self):
-        return f'Const({self.__name!r})'
+        return f'Const({self.name!r})'
 
     def __eq__(self, other):
         return (isinstance(other, Const) and
-                self.__name == other.__name)
+                self.name == other.name)
 
     def shift(self, delta, base=0):
         return self

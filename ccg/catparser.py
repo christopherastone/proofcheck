@@ -247,7 +247,7 @@ def p_semty_2(p):
 
 def p_atsem_1(p):
     '''atsem : WORD'''
-    p[0] = semantics.Const(p[1], 0)
+    p[0] = semantics.Const(p[1])
 
 
 def p_atsem_2(p):
