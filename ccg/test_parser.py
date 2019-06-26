@@ -29,10 +29,9 @@ def test_parse():
 
 def test_lexicon():
     lexicon_data = open('lexicon.txt').read().splitlines()
-    lexicon = catparser.do_parses(lexicon_data)
-    chartparser.p('fido will eat cheese', lexicon)
-    chartparser.p('bob defeated alice', lexicon)
-    chartparser.p('alice sat bob down', lexicon)
+    lexicon, sentences = catparser.do_parses(lexicon_data)
+    for (label, sentence, category, expected_count) in sentences:
+        chartparser.p(label, sentence, lexicon, category, expected_count)
 
 
 if __name__ == '__main__':

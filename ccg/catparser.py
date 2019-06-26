@@ -18,11 +18,13 @@ tokens = (
     'LBRACK', 'RBRACK',
     'LPAREN', 'RPAREN',
     'EQ', 'COMMA',
-    'DRSLASH', 'DLSLASH',
+    #    'DRSLASH', 'DLSLASH',
     'SLASHDOT', 'SLASHO', 'SLASHX', 'SLASHBANG', 'SLASHSTAR',
-    'COLON',
+    'COLON', 'SEMI',
     'ARROW',
-    'QUOTEDSTRING'
+    'QUOTEDSTRING',
+    'QUERY', 'STAR', 'LABEL', 'DOT',
+    'MULTIPLICITY',
 )
 
 # Regular expression rules for simple tokens
@@ -32,12 +34,17 @@ t_LBRACK = r'\['
 t_RBRACK = r'\]'
 t_LPAREN = r'\('
 t_RPAREN = r'\)'
-t_EQ = '='
-t_COMMA = ','
-t_DRSLASH = '//'
-t_DLSLASH = '\\\\'
-t_COLON = ':'
-t_ARROW = '->'
+t_EQ = r'='
+t_COMMA = r','
+# t_DRSLASH = r'//'
+# t_DLSLASH = '\\\\'
+t_COLON = r':'
+t_SEMI = r';'
+t_ARROW = r'->'
+t_QUERY = r'\?'
+# t_BANG = r'!'
+t_STAR = r'\*'
+t_DOT = r'\.'
 
 
 def t_SLASHO(t):
@@ -59,8 +66,14 @@ t_SLASHDOT = r'[\\/]\.'
 # A regular expression rule with some action code
 
 
+def t_MULTIPLICITY(t):
+    r'[xX][0-9]+'
+    t.value = int(t.value[1:])
+    return t
+
+
 def t_WORD(t):
-    r'[A-Za-z][A-Za-z0-9_]*'
+    r"[A-Za-z_']+"
     return t
 
 
@@ -68,6 +81,12 @@ def t_QUOTEDSTRING(t):
     r'\"[^\"]*?\"'
     t.value = t.value[1:-1]
     return t
+
+
+def t_LABEL(t):
+    r"[-A-Za-z_'0-9]*[0-9][-A-Za-z_0-9']*"
+    return t
+
 
 # Define a rule so we can track line numbers
 
@@ -107,30 +126,83 @@ lexer = lex.lex()
 
 semantic_type_map = {}
 word_map = collections.defaultdict(list)
+sentence_list = []
 
 
-def p_vocab_0(p):
-    '''vocab : '''
-    p[0] = 0
+def p_top_0(p):
+    '''top : '''
+
+
+def p_top_1(p):
+    '''top : vocab'''
+
+
+def p_top_2(p):
+    '''top : vocab SEMI top'''
 
 
 def p_vocab_1(p):
     '''vocab : WORD COLON cats'''
     word_map[p[1]] += [(cat, None) for cat in p[3]]
-    p[0] = 0
 
 
 def p_vocab_2(p):
     '''vocab : WORD COLON cat EQ sem'''
     word_map[p[1]] += [(p[3], p[5].deBruijn())]
-    p[0] = 0
 
 
 def p_vocab_3(p):
     '''vocab : WORD COLON COLON semty'''
     assert(p[2] not in semantic_type_map)
     semantic_type_map[p[1]] = p[4]
-    p[0] = 0
+
+
+def p_vocab_4a(p):
+    '''vocab : LABEL DOT QUOTEDSTRING
+             | LABEL RPAREN QUOTEDSTRING
+             | LABEL DOT QUOTEDSTRING cat
+             | LABEL RPAREN QUOTEDSTRING cat'''
+    label = p[1]
+    sentence = p[3].strip(".\t ").lower()
+    category = p[4] if len(p) == 5 else None
+    multiplicity = 1
+    sentence_list.append((label, sentence, category, multiplicity))
+
+
+def p_vocab_4b(p):
+    '''vocab : LABEL DOT QUERY QUOTEDSTRING
+             | LABEL RPAREN QUERY QUOTEDSTRING
+             | LABEL DOT QUERY QUOTEDSTRING cat
+             | LABEL RPAREN QUERY QUOTEDSTRING cat'''
+    label = p[1]
+    sentence = p[4].strip(".\t ").lower()
+    category = p[5] if len(p) == 6 else None
+    multiplicity = None
+    sentence_list.append((label, sentence, category, multiplicity))
+
+
+def p_vocab_5(p):
+    '''vocab : LABEL DOT QUOTEDSTRING MULTIPLICITY
+             | LABEL RPAREN QUOTEDSTRING MULTIPLICITY
+             | LABEL DOT QUOTEDSTRING cat MULTIPLICITY
+             | LABEL RPAREN QUOTEDSTRING cat MULTIPLICITY'''
+    label = p[1]
+    sentence = p[3].strip(".\t ").lower()
+    category = p[4] if len(p) == 6 else None
+    multiplicity = p[5] if len(p) == 6 else p[4]
+    sentence_list.append((label, sentence, category, multiplicity))
+
+
+def p_vocab_6(p):
+    '''vocab : LABEL DOT STAR QUOTEDSTRING
+             | LABEL RPAREN STAR QUOTEDSTRING
+             | LABEL DOT STAR QUOTEDSTRING cat
+             | LABEL RPAREN STAR QUOTEDSTRING cat'''
+    label = p[1]
+    sentence = p[4].strip(".\t ").lower()
+    category = p[5] if len(p) == 6 else None
+    multiplicity = 0
+    sentence_list.append((label, sentence, category, multiplicity))
 
 
 def p_cats_1(p):
@@ -285,7 +357,8 @@ def p_sem_3(p):
 
 def p_error(p):
     if p:
-        print(f"Syntax error on line {p.lineno} at token '{p.type}'")
+        print(
+            f"Syntax error on line {p.lineno} at token '{p.type}' ({p.value})")
         # Just discard the token and tell the parser it's okay.
         # parser.errok()
     else:
@@ -293,9 +366,8 @@ def p_error(p):
 
 
 # Build the parser
-catparser = yacc.yacc(
-    start='cat')  # , errorlog=yacc.NullLogger(), write_tables=False)
-parser = yacc.yacc(write_tables=False)
+catparser = yacc.yacc(start='cat', errorlog=yacc.NullLogger())
+parser = yacc.yacc()
 
 
 ###########
@@ -304,17 +376,18 @@ parser = yacc.yacc(write_tables=False)
 
 
 def do_parses(inputs):
-    global semantic_type_map, word_map
+    global semantic_type_map, word_map, sentence_list
 
     lexer.lineno = 0
     semantic_type_map = {}
     word_map = collections.defaultdict(list)
+    sentence_list = []
 
     for input in inputs:
         parser.parse(input)
         lexer.lineno += 1
 
-    return word_map
+    return word_map, sentence_list
 
 
 if __name__ == '__main__':
@@ -324,8 +397,9 @@ if __name__ == '__main__':
     data = '''
       S :: t
       N :: e -> t
-      FOO : (S \\x S) / S
-      BAR : N / "up" = baz;
+      FOO : (S \\x S) / S = foo
+      4. "Bob defeated" x1
+      5. *"Bob defeated" S
     '''
     print(data)
 
@@ -343,7 +417,7 @@ if __name__ == '__main__':
     print("\nPARSING TEST")
     print("------------")
 
-    wds = do_parses(data.splitlines())
+    wds, sents = do_parses(data.splitlines())
     print()
     for cat, sem in semantic_type_map.items():
         print(f'{cat} has type {sem}')
@@ -351,4 +425,7 @@ if __name__ == '__main__':
     for word, cats in wds.items():
         for cat, sem in cats:
             print(f'{word} has category {cat} and semantics {sem}')
+    print()
+    for s in sents:
+        print(s)
     print()

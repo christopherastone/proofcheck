@@ -172,13 +172,25 @@ def parse(sentence, lexicon=LEXICON):
     return chart[(0, nwds-1)]
 
 
-def p(sentence, lexicon=LEXICON):
+def p(label, sentence, lexicon=LEXICON,
+      goal_category=None, expected_count=None):
     """parse the given string, and pretty-print all complete parses"""
+    print("\n", label + ".",
+          "*" if expected_count == 0 else "",
+          sentence,
+          goal_category or "",
+          # expected_count or "",
+          "\n")
     items = parse(sentence, lexicon)
+    if goal_category is not None:
+        items = [item for item in items if item.cat <= goal_category]
     for item in items:
-        print()
         item.display()
         print()
+    if expected_count is not None and (expected_count != len(items)):
+        print('\nWRONG PARSE COUNT')
+        print(f'Expected {expected_count}, found {len(items)}')
+        exit(1)
 
 
 def dump(sentence, lexicon=LEXICON):
