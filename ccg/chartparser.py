@@ -51,21 +51,27 @@ def modal(wd):
     """Creates a modal-verb entry in the lexicon, with the given name
        and the semantics λf. λx. wd(f x) """
     return Item(MODAL,
-                semantics.Lam("f",
-                              semantics.Lam("x",
-                                            semantics.App(semantics.Const(wd),
-                                                          semantics.App(semantics.BoundVar(1),
-                                                                        semantics.BoundVar(0))))),
+                semantics.Lam(
+                    "f",
+                    semantics.Lam(
+                        "x",
+                        semantics.App(
+                            semantics.Const(wd),
+                            semantics.App(semantics.BoundVar(1),
+                                          semantics.BoundVar(0))))),
                 wd)
 
 
 def coord(wd, cat):
     return Item(mk_coord(cat),
-                semantics.Lam("y",
-                              semantics.Lam("x",
-                                            semantics.App(semantics.App(semantics.Const(wd),
-                                                                        semantics.BoundVar(0)),
-                                                          semantics.BoundVar(1)))),
+                semantics.Lam(
+                    "y",
+                    semantics.Lam(
+                        "x",
+                        semantics.App(
+                            semantics.App(semantics.Const(wd),
+                                          semantics.BoundVar(0)),
+                            semantics.BoundVar(1)))),
                 wd)
 
 ################
