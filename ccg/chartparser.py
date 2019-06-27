@@ -10,6 +10,7 @@ Created on Tue May 30 14:13:01 2017
 import re
 
 from category import *
+import formatting
 from item import Item
 import pyrsistent
 import semantics
@@ -158,9 +159,8 @@ def words(s: str):
     return re.sub(r'[^A-za-z]', ' ', s).lower().split()
 
 
-def parse(sentence, lexicon=LEXICON):
+def parse(wds, lexicon=LEXICON):
     """parse the given string and return all complete parses"""
-    wds = words(sentence)
     nwds = len(wds)
     chart = mkChart(wds, lexicon)
     # print(f'starting chart = {chart}')
@@ -169,19 +169,66 @@ def parse(sentence, lexicon=LEXICON):
             j = i+tot
             fillCell(chart, i, j)
     # print(chart)
-    return chart[(0, nwds-1)]
+    return chart[(0, nwds-1)], chart
+
+
+def nwds_of_chart(chart):
+    # chart has (nwds+1) * (nwds+2) / 2 entries; invert to find nwds
+    return math.round((sqrt(1 + 8*len(chart)) - 3) / 2)
+
+
+def diagnose(wds, chart):
+    nwds = len(wds)
+    diagnoses = set()
+
+    def find_longest_parses_including_index(i):
+        '''find the longest parse that includes word i'''
+        successes = []
+        for length in range(nwds-1, 0, -1):
+            # print(f'trying spans of length {length}')
+            for start in range(max(0, i-length+1), min(i+1, nwds-length+1)):
+                # print(f'trying [{start}, {start+length-1}[')
+                for item in chart[(start, start+length-1)]:
+                    successes.append((start, start+length, item))
+            if len(successes) > 0:
+                return successes
+        assert(False)
+
+    print()
+    print("=========")
+    print("DIAGNOSIS")
+    print("=========")
+
+    items = []
+    for i in range(nwds):
+        # find the longest parse that includes word i
+        diags = set()
+        for a, b, item in find_longest_parses_including_index(i):
+            if not isinstance(item.cat, SingletonCategory) and \
+               (a, b) not in diagnoses:
+                items.append(item)
+                diags.add((a, b))
+        diagnoses = diagnoses | diags
+
+    strings = [string for item in items for string in item.strings + [""]]
+    strings = formatting.center_lines(strings)
+    for string in strings:
+        print(string)
+
+    return
 
 
 def p(label, sentence, lexicon=LEXICON,
       goal_category=None, expected_count=None):
     """parse the given string, and pretty-print all complete parses"""
-    print("\n", label + ".",
+    print("\n", label,
           "*" if expected_count == 0 else "",
           sentence,
           goal_category or "",
           # expected_count or "",
           "\n")
-    items = parse(sentence, lexicon)
+    wds = words(sentence)
+    items, chart = parse(wds, lexicon)
     if goal_category is not None:
         items = [item for item in items if item.cat <= goal_category]
     for item in items:
@@ -190,6 +237,9 @@ def p(label, sentence, lexicon=LEXICON,
     if expected_count is not None and (expected_count != len(items)):
         print('\nWRONG PARSE COUNT')
         print(f'Expected {expected_count}, found {len(items)}')
+        if len(items) == 0:
+            diagnose(wds, chart)
+
         exit(1)
 
 

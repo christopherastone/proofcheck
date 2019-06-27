@@ -1,0 +1,21 @@
+NP :: e
+S :: t
+PP : e -> e
+
+keats : NP[3,sg,m]
+eats : (S \ NP[3,sg]) / NP = \ x -> \ y -> ((eat' x) y)
+apples : NP[pl]
+
+
+6. "Keats eats apples"
+
+sees : (S \ NP[3,sg]) / NP[ana] = \ g -> \ y -> g see' (ana' y) y
+himself : NP[ana,3,sg,m] = self'
+each : NP[ana,pl] /x "other" = other'
+
+24. "Keats sees himself"
+
+to : PP[hd=to,ana,3,sg] / NP[ana] = \ g -> g    # XXX agr
+talks : (S \ NP[3,ag]) / PP[hd=to,ana,3,sg] = \ g -> \ y -> g talkto' (ana' y) y
+
+27. "Keats talks to himself"

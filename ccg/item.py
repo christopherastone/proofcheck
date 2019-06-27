@@ -48,10 +48,11 @@ class Item:
 
     def display(self):
         """Prints the parse as a pretty tree"""
-        for l in self.toStrings():
+        for l in self.strings:
             print(l)
 
-    def toStrings(self):
+    @property
+    def strings(self):
         """Returns lines containing a pretty-print of this
            parse as a tree. An important (recursive) invariant of this
            code is that all lines will have the same length
@@ -70,7 +71,7 @@ class Item:
             rule_label = self.why[0]
             rule_width = len(rule_label)
 
-            justifications = [item.toStrings() for item in self.why[1:]]
+            justifications = [item.strings for item in self.why[1:]]
 
             top_lines = functools.reduce(
                 formatting.merge_lines, justifications)

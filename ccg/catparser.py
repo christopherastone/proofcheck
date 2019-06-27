@@ -23,7 +23,7 @@ tokens = (
     'COLON', 'SEMI',
     'ARROW',
     'QUOTEDSTRING',
-    'QUERY', 'STAR', 'LABEL', 'DOT',
+    'QUERY', 'STAR', 'LABEL',
     'MULTIPLICITY',
 )
 
@@ -44,7 +44,6 @@ t_ARROW = r'->'
 t_QUERY = r'\?'
 # t_BANG = r'!'
 t_STAR = r'\*'
-t_DOT = r'\.'
 
 
 def t_SLASHO(t):
@@ -72,19 +71,19 @@ def t_MULTIPLICITY(t):
     return t
 
 
+def t_LABEL(t):
+    r"[-A-Za-z_'0-9]+[.]"
+    return t
+
+
 def t_WORD(t):
-    r"[A-Za-z_']+"
+    r"[A-Za-z_'0-9]+"
     return t
 
 
 def t_QUOTEDSTRING(t):
     r'\"[^\"]*?\"'
     t.value = t.value[1:-1]
-    return t
-
-
-def t_LABEL(t):
-    r"[-A-Za-z_'0-9]*[0-9][-A-Za-z_0-9']*"
     return t
 
 
@@ -158,49 +157,41 @@ def p_vocab_3(p):
 
 
 def p_vocab_4a(p):
-    '''vocab : LABEL DOT QUOTEDSTRING
-             | LABEL RPAREN QUOTEDSTRING
-             | LABEL DOT QUOTEDSTRING cat
-             | LABEL RPAREN QUOTEDSTRING cat'''
+    '''vocab : LABEL QUOTEDSTRING
+             | LABEL QUOTEDSTRING cat'''
     label = p[1]
-    sentence = p[3].strip(".\t ").lower()
-    category = p[4] if len(p) == 5 else None
+    sentence = p[2].strip(".\t ").lower()
+    category = p[3] if len(p) == 4 else None
     multiplicity = 1
     sentence_list.append((label, sentence, category, multiplicity))
 
 
 def p_vocab_4b(p):
-    '''vocab : LABEL DOT QUERY QUOTEDSTRING
-             | LABEL RPAREN QUERY QUOTEDSTRING
-             | LABEL DOT QUERY QUOTEDSTRING cat
-             | LABEL RPAREN QUERY QUOTEDSTRING cat'''
+    '''vocab : LABEL QUERY QUOTEDSTRING
+             | LABEL QUERY QUOTEDSTRING cat'''
     label = p[1]
-    sentence = p[4].strip(".\t ").lower()
-    category = p[5] if len(p) == 6 else None
+    sentence = p[3].strip(".\t ").lower()
+    category = p[4] if len(p) == 5 else None
     multiplicity = None
     sentence_list.append((label, sentence, category, multiplicity))
 
 
 def p_vocab_5(p):
-    '''vocab : LABEL DOT QUOTEDSTRING MULTIPLICITY
-             | LABEL RPAREN QUOTEDSTRING MULTIPLICITY
-             | LABEL DOT QUOTEDSTRING cat MULTIPLICITY
-             | LABEL RPAREN QUOTEDSTRING cat MULTIPLICITY'''
+    '''vocab : LABEL QUOTEDSTRING MULTIPLICITY
+             | LABEL QUOTEDSTRING cat MULTIPLICITY'''
     label = p[1]
-    sentence = p[3].strip(".\t ").lower()
-    category = p[4] if len(p) == 6 else None
-    multiplicity = p[5] if len(p) == 6 else p[4]
+    sentence = p[2].strip(".\t ").lower()
+    category = p[3] if len(p) == 5 else None
+    multiplicity = p[4] if len(p) == 5 else p[3]
     sentence_list.append((label, sentence, category, multiplicity))
 
 
 def p_vocab_6(p):
-    '''vocab : LABEL DOT STAR QUOTEDSTRING
-             | LABEL RPAREN STAR QUOTEDSTRING
-             | LABEL DOT STAR QUOTEDSTRING cat
-             | LABEL RPAREN STAR QUOTEDSTRING cat'''
+    '''vocab : LABEL STAR QUOTEDSTRING
+             | LABEL STAR QUOTEDSTRING cat'''
     label = p[1]
-    sentence = p[4].strip(".\t ").lower()
-    category = p[5] if len(p) == 6 else None
+    sentence = p[3].strip(".\t ").lower()
+    category = p[4] if len(p) == 5 else None
     multiplicity = 0
     sentence_list.append((label, sentence, category, multiplicity))
 
@@ -324,7 +315,7 @@ def p_atsem_1(p):
 
 def p_atsem_2(p):
     '''atsem : LPAREN sem RPAREN'''
-    p[0] = p[1]
+    p[0] = p[2]
 
 
 def p_path_1(p):
@@ -342,9 +333,15 @@ def p_sem_1(p):
     p[0] = p[1]
 
 
-def p_sem_2(p):
+def p_sem_2a(p):
     '''sem : LSLASH WORD ARROW sem'''
     p[0] = semantics.Lam(p[2], p[4])
+
+
+def p_sem_2b(p):
+    '''sem : SLASHX WORD ARROW sem
+           | SLASHO WORD ARROW sem'''
+    p[0] = semantics.Lam(p[1][1], p[4])
 
 
 def p_sem_3(p):
@@ -365,9 +362,9 @@ def p_error(p):
         print("Syntax error at EOF")
 
 
-# Build the parser
-catparser = yacc.yacc(start='cat', errorlog=yacc.NullLogger())
+# Build the parsers
 parser = yacc.yacc()
+catparser = yacc.yacc(start='cat', errorlog=yacc.NullLogger())
 
 
 ###########
@@ -395,11 +392,7 @@ if __name__ == '__main__':
     print("-----------")
 
     data = '''
-      S :: t
-      N :: e -> t
-      FOO : (S \\x S) / S = foo
-      4. "Bob defeated" x1
-      5. *"Bob defeated" S
+eats : (S \\ NP[3,sg]) / NP = \\ x -> \\ y -> ((eat' x) y)
     '''
     print(data)
 
