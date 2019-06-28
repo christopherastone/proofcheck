@@ -184,6 +184,12 @@ def typeraise_simple(item, dest):
         typeraise_right(category.S, item, dest)
 
 
+def typeraise_generic(item, dest):
+    T = category.CategoryMetavar("T")
+    typeraise_right(T, item, dest)
+    typeraise_left(T, item, dest)
+
+
 def compose_constraint_violation(item1, item2, n, dir='>'):
     # Hockenmaier and Bisk NF Constraint 1:
     # Forbid
@@ -423,7 +429,7 @@ def test_gfc():
     assert ans9[0].why[0] == '>B0'
 
 
-parsingRules = [[],
+parsingRules = [[typeraise_simple],
                 [forward_application,
                  backward_application,
                  forward_composition]]

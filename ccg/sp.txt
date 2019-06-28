@@ -19,7 +19,7 @@ might : ( S \ NP ) / ( S \ NP ) = might'
 
 28. "Anna met and might marry Manny"
 
-29. *"Anna met Manny and might marry"
+29. * "Anna met Manny and might marry"
 
 may : ( S \ NP ) / ( S \ NP ) = may'
 
@@ -34,9 +34,6 @@ to_a_policeman : PP
 
 i : NP = i'
 detest: (S \ NP) / NP = detest'
-
-0a. "detest Manny"
-0b. "Anna married"
 
 # Needs >T rule!
 39. "Anna married and I detest Manny"

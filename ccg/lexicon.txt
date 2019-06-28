@@ -18,6 +18,7 @@ sat : (S \ NP) / "down" / NP = \ x -> \ y -> \ z -> satDown z x;
 
 1. "Fido will eat cheese."
 2. "Bob defeated Alice."
+2a. "Bob defeated"
 3. "Alice sat Bob down."
 4. "defeated Alice"
 5. *"defeated Alice" S
