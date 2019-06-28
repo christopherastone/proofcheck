@@ -230,7 +230,8 @@ def p(label, sentence, lexicon=LEXICON,
     wds = words(sentence)
     items, chart = parse(wds, lexicon)
     if goal_category is not None:
-        items = [item for item in items if item.cat <= goal_category]
+        items = [item for item in items
+                 if item.cat.sub_unify(goal_category) is not None]
     for item in items:
         item.display()
         print()

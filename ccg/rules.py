@@ -20,30 +20,39 @@ normalize = True
 
 def forward_application(item1, item2, dest):
     cat1, sem1, cat2, sem2 = deconstruct(item1, item2)
-    if not (cat1.slash and cat1.slash <= slash.RSLASH):
+    # print(f'forward_application trying {cat1} @ {cat2}')
+    if not (isinstance(cat1, category.SlashCategory) and
+            # XXX: ^^^ overspecific, but only if we want to apply metavars.
+            slash.RSLASH <= cat1.slash):
+        # print(f' forward_application: nope 1')
         return False  # not a function, or not looking rightwards
-
-    if not (cat2 <= cat1.dom):
-        return False  # application category mismatch
 
     if normalize and (  # item1.why[0] == '>' or
             item1.why[0].startswith('>B') or
             item1.why[0] == '>T'):
+        # print(f'forward_application: nope 3')
         return False  # this would lead to redundancy
+
+    sub = cat2.sub_unify(cat1.dom)
+    if sub is None:
+        # print(f'forward_application: {cat2} <= {cat1.dom}: nope 2')
+        return False  # application category mismatch
 
     dest += [Item(cat1.cod,
                   semantics.App(sem1, sem2).reduce(),
-                  ['>', item1, item2])]
+                  ['>', item1, item2]).subst(sub)]
     return True
 
 
 def backward_application(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
 
-    if not (cat2.slash and cat2.slash <= slash.LSLASH):
+    if not (isinstance(cat2, category.SlashCategory) and
+            slash.LSLASH <= cat2.slash):
         return False  # not a function, or not looking leftwards
 
-    if not (cat1 <= cat2.dom):
+    sub = cat1.sub_unify(cat2.dom)
+    if sub is None:
         return False  # application category mismatch
 
     if normalize and (  # item2.why[0] == '<' or
@@ -53,18 +62,21 @@ def backward_application(item1, item2, dest):
 
     dest += [Item(cat2.cod,
                   semantics.App(sem2, sem1).reduce(),
-                  ['<', item1, item2])]
+                  ['<', item1, item2]).subst(sub)]
     return True
 
 
 def forward_composition(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
 
-    if not(cat1.slash and cat1.slash <= slash.RCOMPOSE and
-            cat2.slash and cat2.slash <= slash.RCOMPOSE):
+    if not(isinstance(cat1, category.SlashCategory) and
+           cat1.slash <= slash.RCOMPOSE and
+           isinstance(cat2, category.SlashCategory) and
+           cat2.slash <= slash.RCOMPOSE):
         return False  # not both rightwards functions
 
-    if not (cat2.cod <= cat1.dom):
+    sub = cat2.cod.sub_unify(cat1.dom)
+    if sub is None:
         return False  # not composeable
 
     dest += (
@@ -76,7 +88,7 @@ def forward_composition(item1, item2, dest):
                 semantics.App(
                     sem2,
                     semantics.BoundVar(0))).reduce()),
-              ['>B', item1, item2])])
+              ['>B', item1, item2]).subst(sub)])
     return True
 
 

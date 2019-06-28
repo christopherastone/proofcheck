@@ -8,6 +8,12 @@ import semantic_types
 import semantics
 
 
+def extend_pmap(pmap1, map2):
+    return pyrsistent.pmap(
+        {a: b.subst(map2) for a, b in pmap1.items()}
+    ).update(map2)
+
+
 class BaseCategory:
     """An atomic grammatical category, such as NP,
        with optional fixed attributes"""
@@ -50,16 +56,32 @@ class BaseCategory:
         return (isinstance(other, BaseCategory) and
                 self.cat == other.cat)
 
-    def __le__(self, other):
-        return self == other
+    def sub_unify(self, other, sub=pyrsistent.m()):
+        # print(f'BaseCategory: sub_unify of {self} and {other}')
+        if sub is None:
+            # Short-circuit after failure in chained unifications.
+            answer = None
+        elif isinstance(other, CategoryMetavar):
+            assert other not in sub
+            answer = extend_pmap(sub, {other: self})
+        elif isinstance(other, BaseCategory):
+            # XXX ignores features!
+            answer = sub if self == other else None
+        else:
+            answer = None
+        # print(
+        #     f'BaseCategory: sub_unify of {self} and {other}: answer = {answer}')
+        return answer
 
-    @property
-    def spine(self):
-        return (self, [])
+    # def __le__(self, other):
+    #     print(f'BaseCategory: <= of {self} and {other}')
+    #     sub = self.sub_unify(other)
+    #     print(f'BaseCategory: <= of {self} and {other}: sub = {sub}')
+    #     return (sub is not None)
 
-    @property
-    def slash(self):
-        return None
+    def subst(self, sub):
+        # XXX: Ignores feature variables
+        return self
 
 
 class SingletonCategory:
@@ -90,10 +112,6 @@ class SingletonCategory:
         return self == other
 
     @property
-    def spine(self):
-        return (self, [])
-
-    @property
     def slash(self):
         return None
 
@@ -101,10 +119,31 @@ class SingletonCategory:
     def semty(self):
         return semantic_types.BaseType("1")
 
+    def sub_unify(self, other, sub=pyrsistent.m()):
+        if sub is None:
+            # Short-circuit after failure in chained unifications.
+            answer = None
+        elif isinstance(other, CategoryMetavar):
+            assert other not in sub
+            answer = extend_pmap(sub, {other: self})
+        elif isinstance(other, SingletonCategory):
+            # XXX ignores features!
+            answer = sub if self == other else None
+        else:
+            answer = None
+        return answer
+
+    # def __le__(self, other):
+    #     return self.sub_unify(other) is not None
+
+    def subst(self, sub):
+        # XXX: Ignores feature variables
+        return self
+
 
 class SlashCategory:
-    """A complex grammatical category, with a given codomain, domain,
-       and slash type"""
+    """A complex grammatical category,
+       with a given codomain, domain, and slash"""
 
     def __init__(self, cod, slash, dom):
         assert isinstance(slash, s.Slash)
@@ -124,23 +163,17 @@ class SlashCategory:
     def dom(self):
         return self.__dom
 
-    def __eq__(self, other):
-        return (isinstance(other, SlashCategory) and
-                (self.slash == other.slash) and
-                (self.dom == other.dom) and
-                (self.cod == other.cod))
-
     def __repr__(self):
-        return (f'SlashCategory({self.__cod!r},' +
-                f'{self.__slash!r},' +
-                f'{self.__dom!r}')
-
-    def with_parens(self):
-        return '(' + str(self) + ')'
+        return f'SlashCategory({self.cod!r},' \
+               f'{self.__slash!r},' \
+               f'{self.__dom!r}'
 
     def __str__(self):
         return \
             f'{self.cod.with_parens()}{self.slash}{self.dom.with_parens()}'
+
+    def with_parens(self):
+        return '(' + str(self) + ')'
 
     @property
     def semty(self):
@@ -149,16 +182,95 @@ class SlashCategory:
         else:
             return self.cod.semty
 
-    def __le__(self, other):
+    def __eq__(self, other):
+        """Checks for syntactic equality (not unifiability)"""
         return (isinstance(other, SlashCategory) and
-                self.slash <= other.slash and
-                self.dom >= other.dom and
-                self.cod <= other.cod)
+                (self.slash == other.slash) and
+                (self.dom == other.dom) and
+                (self.cod == other.cod))
+
+    def sub_unify(self, other, sub=pyrsistent.m()):
+        if sub is None:
+            # Short-circuit after failure in chained unifications.
+            answer = None
+        elif isinstance(other, CategoryMetavar):
+            assert(other not in sub)
+            # XXX over-precise?
+            answer = extend_pmap(sub, {other: self})
+        elif isinstance(other, SlashCategory):
+            if not (self.slash <= other.slash):
+                # failure because slasheds don't match.
+                # XXX update when we have variable slash modes!
+                return None
+            # If the slashes match we need the other domain to be smaller
+            # (contravariant) and this codomain to be smaller (codomain)
+            sub = self.cod.sub_unify(other.cod, sub)
+            sub = other.dom.subst(sub).sub_unify(self.dom.subst(sub), sub)
+            answer = sub
+        else:
+            answer = None
+        return answer
+
+    # def __le__(self, other):
+    #     return self.sub_unify(other) is not None
+
+    def subst(self, sub):
+        return SlashCategory(
+            self.cod.subst(sub),
+            self.slash,
+            self.dom.subst(sub))
+
+
+class CategoryMetavar:
+    """An unknown category"""
+
+    def __init__(self, hint):
+        self.__hint = hint
 
     @property
-    def spine(self):
-        h, t = self.cod.spine
-        return (h, [(self.slash, self.dom)] + t)
+    def hint(self):
+        return self.__hint
+
+    def __repr__(self):
+        return f'SCategoryMetavar({self.hint!r})'
+
+    def __str__(self):
+        return \
+            f'M[{self.hint}:{id(self)}]'
+
+    def with_parens(self):
+        return str(self)
+
+    @property
+    def semty(self):
+        return None
+
+    def __eq__(self, other):
+        """Checks for pointer equality (not unifiability)"""
+        return self is other
+
+    def sub_unify(self, other, sub=pyrsistent.m()):
+        # print(f'CMV: sub_unify of {self} and {other}')
+
+        if sub is None:
+            # Short-circuit after failure in chained unifications.
+            answer = None
+        else:
+            # XXX over-precise?
+            answer = extend_pmap(sub, {self: other})
+        return answer
+
+    # def __le__(self, other):
+    #     return self.sub_unify(other) is not None
+
+    def subst(self, sub):
+        if self in sub:
+            return sub[self]
+        else:
+            return self
+
+    def __hash__(self):
+        return id(self)
 
 
 ############################

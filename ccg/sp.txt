@@ -10,8 +10,6 @@ manny : NP = manny'
 
 16. "Anna married Manny"
 
-and : ( ((S\NP)/NP) \ ((S\NP)/NP) ) / ((S\NP)/NP) = \ f -> \ g -> \ x -> \ y -> and' (f x y) (g x y)
-
 met : ( S \ NP ) / NP = meet'
 
 21. "Anna met and married Manny"
@@ -32,13 +30,13 @@ to_a_policeman : PP
 
 # XXX Needs a >B2 rule
 
-30. "I offered and may give a_flower to_a_policeman"
+30. ? "I offered and may give a_flower to_a_policeman"
 
-and : ( (S\NP) \ (S\NP) ) / (S\NP) = \ f -> \ g -> \ x -> and' (f x) (g x)
 i : NP = i'
 detest: (S \ NP) / NP = detest'
 
-0. "detest Manny"
+0a. "detest Manny"
+0b. "Anna married"
 
 # Needs >T rule!
 39. "Anna married and I detest Manny"

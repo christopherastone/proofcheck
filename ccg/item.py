@@ -34,17 +34,17 @@ class Item:
            semantic check is doing pointer equality."""
         return self.cat == other.cat and self.sem == other.sem
 
-    # def subst(self, sub):
-    #     cat2 = self.cat.subst(sub)
-    #     sem2 = self.sem
-    #     why2 = self.why
-    #     if (isinstance(self.why, list)):
-    #         why2 = [x.subst(sub) if isinstance(x, Item) else x
-    #                 for x in self.why
-    #                 ]
-    #     else:
-    #         why2 = self.why
-    #     return Item(cat2, sem2, why2)
+    def subst(self, sub):
+        cat2 = self.cat.subst(sub)
+        sem2 = self.sem
+        why2 = self.why
+        if (isinstance(self.why, list)):
+            why2 = [x.subst(sub) if isinstance(x, Item) else x
+                    for x in self.why
+                    ]
+        else:
+            why2 = self.why
+        return Item(cat2, sem2, why2)
 
     def display(self):
         """Prints the parse as a pretty tree"""
