@@ -16,8 +16,10 @@ import pyrsistent
 import semantics
 import rules
 
+USE_SINGLETONS = False
 
 # LEXICON CONSTRUCTION
+
 
 def pn(wd, attr=pyrsistent.m()):
     """Creates a NP entry for the lexicon, with the given proper name
@@ -112,7 +114,8 @@ def mkChart(wds, lexicon=LEXICON):
         # permanently change the static dictionary.
         word = wds[i]
         chart[(i, i)] = \
-            [Item(SingletonCategory(word), semantics.Const('_'), word)]
+            [Item(SingletonCategory(word), semantics.Const('_'), word)] \
+            if USE_SINGLETONS else []
         for info in lexicon[wds[i]]:
             if isinstance(info, Item):
                 chart[(i, i)].append(info)
