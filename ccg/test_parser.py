@@ -38,7 +38,16 @@ def test_lexicon(filename):
         SlashCategory(mv, slash.LAPPLY, mv),
         slash.RAPPLY,
         mv)
-    lexicon['and'].append((cat, None))
+    lexicon['and'].append((cat,
+                           semantics.Lam(
+                               "x",
+                               semantics.Lam(
+                                   "y",
+                                   semantics.App(
+                                       semantics.App(
+                                           semantics.Const("and"),
+                                           semantics.BoundVar(0)),
+                                       semantics.BoundVar(1))))))
 
     for (label, sentence, category, expected_count) in sentences:
         chartparser.p(label, sentence, lexicon, category, expected_count)

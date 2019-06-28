@@ -129,8 +129,17 @@ class App:
     def reduce(self):
         # if self.__right == Const("_", 0):
         #     return self.__left.reduce()
-        if isinstance(self.__left, Lam):
+        if isinstance(self.left, Lam):
             return beta(self.__left.body, self.__right).reduce()
+        elif (isinstance(self.left, App) and
+              isinstance(self.left.left, App) and
+              isinstance(self.left.left.left, Const) and
+              self.left.left.left.name in {'and', 'or'}):
+            # special case: (and a b)c => and (a c) (b c)
+            return App(App(self.left.left.left,
+                           App(self.left.left.right, self.right)),
+                       App(self.left.right, self.right)).reduce()
+
         return self
 
     @property
