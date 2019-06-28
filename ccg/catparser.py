@@ -109,7 +109,7 @@ t_ignore = ' \t'
 
 
 def t_comment(t):
-    r'\#[^\\n]*'
+    r'\#[^\n]*'
     pass
 
 # Error handling rule
@@ -392,7 +392,7 @@ if __name__ == '__main__':
     print("-----------")
 
     data = '''
-eats : (S \\ NP[3,sg]) / NP = \\ x -> \\ y -> ((eat' x) y)
+ eats : (S \\ NP[3,sg]) / NP = \\ x -> \\ y -> ((eat' x) y)
     '''
     print(data)
 
