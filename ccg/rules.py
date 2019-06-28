@@ -27,11 +27,12 @@ def forward_application(item1, item2, dest):
         # print(f' forward_application: nope 1')
         return False  # not a function, or not looking rightwards
 
-    if normalize and (  # item1.why[0] == '>' or
-            item1.why[0].startswith('>B') or
-            item1.why[0] == '>T'):
-        # print(f'forward_application: nope 3')
-        return False  # this would lead to redundancy
+    if compose_constraint_violation(item1, item2, 0, '>'):
+        # print("forward application constraint violation")
+        # print(item1)
+        # print(item2)
+        # print()
+        return False
 
     sub = cat2.sub_unify(cat1.dom)
     if sub is None:
@@ -51,14 +52,16 @@ def backward_application(item1, item2, dest):
             slash.LSLASH <= cat2.slash):
         return False  # not a function, or not looking leftwards
 
+    if compose_constraint_violation(item2, item1, 0, '<'):
+        # print(f"backward constraint violated; skipping")
+        # print(item1)
+        # print(item2)
+        # print()
+        return False
+
     sub = cat1.sub_unify(cat2.dom)
     if sub is None:
         return False  # application category mismatch
-
-    if normalize and (  # item2.why[0] == '<' or
-            item2.why[0].startswith('<B') or
-            item2.why[0] == '<T'):
-        return False  # this would lead to redundancy
 
     dest += [Item(cat2.cod,
                   semantics.App(sem2, sem1).reduce(),
@@ -74,6 +77,13 @@ def forward_composition(item1, item2, dest):
            isinstance(cat2, category.SlashCategory) and
            cat2.slash <= slash.RCOMPOSE):
         return False  # not both rightwards functions
+
+    if compose_constraint_violation(item1, item2, 1, '>'):
+        # print("forward composition constraint violation")
+        # print(item1)
+        # print(item2)
+        # print()
+        return False
 
     sub = cat2.cod.sub_unify(cat1.dom)
     if sub is None:
@@ -164,7 +174,7 @@ def typeraise_candc(item, dest):
         typeraise_left(category.VBT, item, dest),
         typeraise_left(
             # NP -> ((S\NP)/PP) \ ( ((S\NP)/PP) / NP )
-            category.SlashCategory(category.RIGHT, category.VBI, category.PP),
+            category.SlashCategory(category.VBI, slash.RSLASH, category.PP),
             item, dest)
         # TODO: Add these when it's time
         # typeraise_left((S\NP)/(S[to]\NP), item, dest)
@@ -196,7 +206,7 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
     #   X/A  A/Y[1..k]/C
     #   -------------- >B(k+1)
     #      X/Y[1..k]/C            C
-    #   ------------------------------ >
+    #   ------------------------------ > (aka B0)
     #          X/Y[1..k]
     #
     # and
@@ -209,7 +219,8 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
     if (n == 0 or n == 1):
         if item1.rule().startswith(dir+'B'):
             # possible violation; but check that it's B(k+1), not B0
-            if item1.rule() != dir+'B0':
+            if item1.rule() != dir+'B0' and item1.rule() != dir:
+                # print("constraint 1")
                 return True
 
     # Hockenmaier and Bisk NF Constraint 2:
@@ -228,6 +239,7 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
 
     if (n > 1):
         if (item1.why and item1.why[0] == dir+'B1'):
+            # print("constraint 2")
             return True
 
     # Hockenmaier and Bisk NF Constraint 3:
@@ -244,7 +256,9 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
     #   ------------------------------------------------ >Bm
     #                      A/C[1..k]/E[1..m]
     if (item2.why and item2.why[0].startswith(dir+'B') and
-            int(item2.why[0][2:]) < n):
+            ((item2.why[0][2:] == '' and 1 < n) or
+             (item2.why[0][2:] != '' and int(item2.why[0][2:]) < n))):
+        # print("constraint 3")
         return True
 
     # Hockenmaier and Bisk NF Constraint 4:
@@ -263,8 +277,10 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
     #         A
     if (n == 0):
         if item1.why and item1.why[0] == dir+'T':
+            # print("constraint 5")
             return True
 
+    # print("no constraint")
     return False
 
 
