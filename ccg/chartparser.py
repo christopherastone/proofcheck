@@ -132,6 +132,9 @@ def fillCell(chart, i, j, rules=rules.parsingRules):
        applying all the binary rules to all possible ways to
        partition the range into two nonempty sub-segments,
        and then applies all the unary rules to the results."""
+    DEBUG = False
+    if DEBUG:
+        print(f"fillcell {i},{j}")
     if (i, j) not in chart:
         chart[(i, j)] = []
     # print(f'chart[({i},{j})] = {[str(i) for i in chart[(i,j)]]} (1)')
@@ -235,16 +238,26 @@ def p(label, sentence, lexicon=LEXICON,
     if goal_category is not None:
         items = [item for item in items
                  if item.cat.sub_unify(goal_category) is not None]
-    for item in items:
-        item.display()
-        print()
     if expected_count is not None and (expected_count != len(items)):
-        print('\nWRONG PARSE COUNT')
+        print('\nWRONG PARSE COUNT',
+              f'for GOAL {goal_category}' if goal_category is not None else "")
         print(f'Expected {expected_count}, found {len(items)}')
         if len(items) == 0:
             diagnose(wds, chart)
+        elif len(items) > expected_count:
+            for item in items[:expected_count+2]:
+                item.display()
+                print()
+            if len(items) > expected_count + 2:
+                print("...etc...\n")
+        else:
+            dump(sentence, lexicon)
 
         exit(1)
+    else:
+        for item in items:
+            item.display()
+            print()
 
 
 def dump(sentence, lexicon=LEXICON):

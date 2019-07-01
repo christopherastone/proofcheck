@@ -8,16 +8,19 @@ married : ( S \ NP ) / NP = marry'
 anna : NP = anna'
 manny : NP = manny'
 
-16. "Anna married Manny"
+16. "Anna married Manny" S
 
 met : ( S \ NP ) / NP = meet'
 
-21. "Anna met and married Manny"
+21. "Anna met and married Manny" S
+
+21a. "Anna met and married"
+21b. "Anna and Manny" x2
 
 marry : ( S \ NP ) / NP = marry'
 might : ( S \ NP ) / ( S \ NP ) = might'
 
-28. "Anna met and might marry Manny"
+28. "Anna met and might marry Manny" S
 
 29. * "Anna met Manny and might marry"
 
@@ -30,10 +33,10 @@ to_a_policeman : PP
 
 # XXX Needs a >B2 rule
 
-30. ? "I offered and may give a_flower to_a_policeman"
+30. "I offered and may give a_flower to_a_policeman" S
 
 i : NP = i'
 detest: (S \ NP) / NP = detest'
 
 # Needs >T rule!
-39. "Anna married and I detest Manny"
+39. "Anna married and I detest Manny" S

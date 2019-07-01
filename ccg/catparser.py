@@ -14,7 +14,7 @@ import slash
 # List of token names.   This is always required
 tokens = (
     'WORD',
-    'LSLASH', 'RSLASH',
+    'LSLASH', 'RSLASH', 'BAR',
     'LBRACK', 'RBRACK',
     'LPAREN', 'RPAREN',
     'EQ', 'COMMA',
@@ -44,23 +44,24 @@ t_ARROW = r'->'
 t_QUERY = r'\?'
 # t_BANG = r'!'
 t_STAR = r'\*'
+t_BAR = r'\|'
 
 
 def t_SLASHO(t):
-    r'[\\/][Oo○]'
+    r'[\\/|][Oo○]'
     t.value = t.value[0] + 'o'
     return t
 
 
 def t_SLASHX(t):
-    r'[\\/][Xx×]'
+    r'[\\/|][Xx×]'
     t.value = t.value[0] + 'x'
     return t
 
 
-t_SLASHSTAR = r'[\\/]\*'
-t_SLASHBANG = r'[\\/]!'
-t_SLASHDOT = r'[\\/]\.'
+t_SLASHSTAR = r'[\\/|]\*'
+t_SLASHBANG = r'[\\/|]!'
+t_SLASHDOT = r'[\\/|]\.'
 
 # A regular expression rule with some action code
 
@@ -213,7 +214,8 @@ def p_cat_0(p):
 
 def p_cat_1(p):
     '''cat : cat LSLASH atcat
-           | cat RSLASH atcat'''
+           | cat RSLASH atcat
+           | cat BAR    atcat'''
     p[0] = category.SlashCategory(
         p[1], slash.Slash(p[2], slash.ANYRULE), p[3])
 

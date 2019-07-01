@@ -6,6 +6,7 @@ import lattice
 
 LEFT = '\\'
 RIGHT = '/'
+UNDIRECTED = "|"
 
 # def invert(dir):
 #     """return the opposite of the given direction"""
@@ -25,12 +26,14 @@ APPLYONLY = "*"
 ALLOWB = "o"
 ALLOWBX = "x"
 ANYRULE = "."
+PHI = "Φ"
 
 modes = lattice.FiniteLattice([
     (ANYRULE, ALLOWB),
     (ANYRULE, ALLOWBX),
-    (ALLOWB, APPLYONLY),
-    (ALLOWBX, APPLYONLY),
+    (ALLOWB, PHI),
+    (ALLOWBX, PHI),
+    (PHI, APPLYONLY),
     (APPLYONLY, INACTIVE)
 ])
 
@@ -60,7 +63,7 @@ class Slash:
 
     def __le__(self, other):
         return (isinstance(other, Slash) and
-                self.dir == other.dir and
+                (self.dir == other.dir or other.dir == UNDIRECTED) and
                 modes.leq(self.mode, other.mode))
 
 

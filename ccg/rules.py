@@ -15,7 +15,47 @@ def deconstruct(item1, item2):
     return (item1.cat, item1.sem, item2.cat, item2.sem)
 
 
-normalize = True
+#######################
+# FORWARD APPLICATION #
+#######################
+
+#   A /* B   B
+#     f      b
+#  ------------ >  [a.k.a. >B0]
+#       A
+#      f(b)
+
+#  But as a special case (i.e., the right-hand-side of and/or)
+#  we rename the rule:
+
+#   A /Φ B   B
+#     f      b
+#  ------------ >Φ
+#       A
+#      f(b)
+
+# And as an even more special case (i.e., when the right-hand-side
+# of an and/or was type-raised)
+
+#              B
+#              b
+#             --- ≷T
+#   A /Φ ↑B   ↑B
+#     f       ↑b
+#  ------------ >ΦT
+#       A
+#      f(↑b)
+
+# UNFORTUNATELY, THIS ΦT labeling DOESN'T WORK AS WELL AS WE MIGHT HOPE, e.g.
+
+#    In "met and marry" it can detect if met and marry are both lifted before the
+#    conjunction, (and so the result of the composition shouldn't be applied
+#    with an argument, because lifting + application just reverses a
+#    pre-existing possible application)
+
+#    But "met and might marry" where "might marry" has an intermediate
+#    >B composition step, which can hide the fact that marry was
+#    (unnecessarily) lifted.
 
 
 def forward_application(item1, item2, dest):
@@ -27,6 +67,8 @@ def forward_application(item1, item2, dest):
         # print(f' forward_application: nope 1')
         return False  # not a function, or not looking rightwards
 
+    # NB: application is a special (zero-ary) case of composition,
+    #     so we can use the same constraint checking-function.
     if compose_constraint_violation(item1, item2, 0, '>'):
         # print("forward application constraint violation")
         # print(item1)
@@ -39,10 +81,47 @@ def forward_application(item1, item2, dest):
         # print(f'forward_application: {cat2} <= {cat1.dom}: nope 2')
         return False  # application category mismatch
 
+    label = '>'
+    if slash.PHI in cat1.slash.mode:
+        label += slash.PHI
+        if 'T' in item2.why[0]:
+            label += 'T'
+
     dest += [Item(cat1.cod,
                   semantics.App(sem1, sem2).reduce(),
-                  ['>', item1, item2]).subst(sub)]
+                  [label, item1, item2]).subst(sub)]
     return True
+
+########################
+# BACKWARD APPLICATION #
+########################
+
+#   B    A \* B
+#   b      f
+#  ------------ >  [a.k.a. <B0]
+#       A
+#      f(b)
+
+#  But as a special case (i.e., the left-hand-side of and/or)
+#  we rename the rule:
+
+#   B    A \Φ B
+#   b      f
+#  ------------ <Φ
+#       A
+#      f(b)
+
+# And as an even more special case (i.e., when the right-hand-side
+# and the left-hand-side were both type-raised)
+
+#     B
+#     b
+#    --- ≷T  -------- <ΦT
+#     ↑B      A \Φ ↑B
+#     ↑b         f
+#  -------------------- <ΦT
+#       A
+#      f(↑b)
 
 
 def backward_application(item1, item2, dest):
@@ -63,9 +142,15 @@ def backward_application(item1, item2, dest):
     if sub is None:
         return False  # application category mismatch
 
+    label = '<'
+    if slash.PHI in cat2.slash.mode:
+        label += slash.PHI
+        if 'T' in item1.why[0] and 'T' in item2.why[0]:
+            label += 'T'
+
     dest += [Item(cat2.cod,
                   semantics.App(sem2, sem1).reduce(),
-                  ['<', item1, item2]).subst(sub)]
+                  [label, item1, item2]).subst(sub)]
     return True
 
 
@@ -102,12 +187,53 @@ def forward_composition(item1, item2, dest):
     return True
 
 
+def forward_composition2(item1, item2, dest):
+    (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
+
+    if not(isinstance(cat1, category.SlashCategory) and
+           cat1.slash <= slash.RCOMPOSE and
+           isinstance(cat2, category.SlashCategory) and
+           isinstance(cat2.cod, category.SlashCategory) and
+           cat2.cod.slash <= slash.RCOMPOSE):
+        return False  # not both rightwards functions
+
+    if compose_constraint_violation(item1, item2, 2, '>'):
+        # print("forward composition constraint violation")
+        # print(item1)
+        # print(item2)
+        # print()
+        return False
+
+    sub = cat2.cod.cod.sub_unify(cat1.dom)
+    if sub is None:
+        return False  # not composeable
+
+    dest += (
+        [Item(category.SlashCategory(
+            category.SlashCategory(cat1.cod, slash.RSLASH, cat2.cod.dom),
+            cat2.slash,
+            cat2.dom),
+            (semantics.Lam(
+                "w",
+                semantics.Lam(
+                    "z",
+                    semantics.App(
+                        sem1,
+                        semantics.App(
+                            semantics.App(
+                                sem2,
+                                semantics.BoundVar(1)),
+                            semantics.BoundVar(0))))).reduce()),
+            ['>B2', item1, item2]).subst(sub)])
+    return True
+
+
 c_arg = [category.NP, category.S, category.VBI]
 
 
 def typeraise_constraint_violation(item, dir='>'):
     # NF Constraint 6
-    if item.rule() == 'Φ':
+    if slash.PHI in item.why[0]:
         return True
     return False
 
@@ -201,6 +327,9 @@ def typeraise_generic(item, dest):
 
 
 def compose_constraint_violation(item1, item2, n, dir='>'):
+    DEBUG = False
+    if DEBUG:
+        print(f'ccv {item1.cat} {item2.cat} {n} {dir}')
     # Hockenmaier and Bisk NF Constraint 1:
     # Forbid
     #   X/A  A/Y[1..k]/C
@@ -219,8 +348,9 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
     if (n == 0 or n == 1):
         if item1.rule().startswith(dir+'B'):
             # possible violation; but check that it's B(k+1), not B0
-            if item1.rule() != dir+'B0' and item1.rule() != dir:
-                # print("constraint 1")
+            if item1.rule() not in [dir+'B0', dir]:
+                if DEBUG:
+                    print("constraint 1")
                 return True
 
     # Hockenmaier and Bisk NF Constraint 2:
@@ -238,8 +368,9 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
     #           A/D[1..n]
 
     if (n > 1):
-        if (item1.why and item1.why[0] == dir+'B1'):
-            # print("constraint 2")
+        if (item1.why and item1.why[0] in [dir+'B', dir+'B1']):
+            if DEBUG:
+                print("constraint 2")
             return True
 
     # Hockenmaier and Bisk NF Constraint 3:
@@ -256,13 +387,32 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
     #   ------------------------------------------------ >Bm
     #                      A/C[1..k]/E[1..m]
     if (item2.why and item2.why[0].startswith(dir+'B') and
-            ((item2.why[0][2:] == '' and 1 < n) or
-             (item2.why[0][2:] != '' and int(item2.why[0][2:]) < n))):
-        # print("constraint 3")
+            ((not item2.why[0][-1].isdigit() and 1 < n) or
+             (item2.why[0][-1].isdigit() and int(item2.why[0][-1]) < n))):
+        if DEBUG:
+            print("constraint 3")
         return True
 
-    # Hockenmaier and Bisk NF Constraint 4:
-    # TBA
+    # Hockenmaier and Bisk NF Constraint 5:
+    # Forbid
+    #       X
+    #    ------- >T
+    #    A/(A\X)            (A\X)
+    #    ------------------------ >
+    #               A
+    # because we could have just the single step
+    #     X     (A\X)
+    #    ------------- >
+    #         A
+
+    if (n > 0):
+        opdir = '<' if dir == '>' else '>'
+        if (item1.why and item1.why[0].startswith(dir+'T') and
+            item2.why and item2.why[0].startswith(opdir+'B') and
+                item2.why[-1].isdigit() and int(item2.why[-1]) > n):
+            if DEBUG:
+                print("constraint 4")
+            return True
 
     # Hockenmaier and Bisk NF Constraint 5:
     # Forbid
@@ -276,8 +426,9 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
     #    ------------- >
     #         A
     if (n == 0):
-        if item1.why and item1.why[0] == dir+'T':
-            # print("constraint 5")
+        if item1.why and item1.why[0].startswith(dir + 'T'):
+            if DEBUG:
+                print("constraint 5")
             return True
 
     # print("no constraint")
@@ -448,7 +599,8 @@ def test_gfc():
 parsingRules = [[typeraise_simple],
                 [forward_application,
                  backward_application,
-                 forward_composition]]
+                 forward_composition,
+                 forward_composition2]]
 
 
 """

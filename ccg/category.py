@@ -205,7 +205,8 @@ class SlashCategory:
             # If the slashes match we need the other domain to be smaller
             # (contravariant) and this codomain to be smaller (codomain)
             sub = self.cod.sub_unify(other.cod, sub)
-            sub = other.dom.subst(sub).sub_unify(self.dom.subst(sub), sub)
+            if sub is not None:
+                sub = other.dom.subst(sub).sub_unify(self.dom.subst(sub), sub)
             answer = sub
         else:
             answer = None
@@ -235,8 +236,8 @@ class CategoryMetavar:
         return f'SCategoryMetavar({self.hint!r})'
 
     def __str__(self):
-        return \
-            f'M[{self.hint}:{id(self)}]'
+        return f'{self.hint}'
+        # f'M[{self.hint}:{id(self)}]'
 
     def with_parens(self):
         return str(self)
