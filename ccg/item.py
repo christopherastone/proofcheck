@@ -58,7 +58,8 @@ class Item:
            code is that all lines will have the same length
            (space padded, if necessary)"""
 
-        bottom_lines = [str(self.cat), str(self.cat.semty), str(self.sem)]
+        # bottom_lines = [str(self.cat), str(self.cat.semty), str(self.sem)]
+        bottom_lines = [str(self.cat), str(self.sem)]
 
         if isinstance(self.why, str):
             # This is just a single input word. Report the

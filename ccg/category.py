@@ -170,8 +170,11 @@ class SlashCategory:
                f'{self.__dom!r}'
 
     def __str__(self):
-        return \
+        answer = \
             f'{self.cod.with_parens()}{self.slash}{self.dom.with_parens()}'
+        if len(answer) > 35:
+            answer = "..."
+        return answer
 
     def with_parens(self):
         return '(' + str(self) + ')'

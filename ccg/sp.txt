@@ -15,7 +15,7 @@ met : ( S \ NP ) / NP = meet'
 21. "Anna met and married Manny" S
 
 21a. "Anna met and married"
-21b. "Anna and Manny" x2
+21b. "Anna and Manny" NP
 
 marry : ( S \ NP ) / NP = marry'
 might : ( S \ NP ) / ( S \ NP ) = might'

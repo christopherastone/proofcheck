@@ -32,13 +32,12 @@ Y :: e
 Z :: e
 W :: e
 
-baz : Z \ W
-foo : Y \ Z
-bar : X \o Y
+foo : Y / Z
+bar : X \x Y
 
-test1. "baz foo bar"
+test1. "foo bar"
 
-foop : Y \* Z
-barp : X \* Y
+#foop : Y \* Z
+#barp : X \* Y
 
-test2. * "foop barp"
+#test2. * "foop barp"

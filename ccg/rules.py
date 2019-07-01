@@ -48,14 +48,14 @@ def deconstruct(item1, item2):
 
 # UNFORTUNATELY, THIS ΦT labeling DOESN'T WORK AS WELL AS WE MIGHT HOPE, e.g.
 
-#    In "met and marry" it can detect if met and marry are both lifted before the
-#    conjunction, (and so the result of the composition shouldn't be applied
-#    with an argument, because lifting + application just reverses a
-#    pre-existing possible application)
+#  In "met and marry" it can detect if met and marry are both lifted before the
+#  conjunction, (and so the result of the composition shouldn't be applied
+#  with an argument, because lifting + application just reverses a
+#  pre-existing possible application)
 
-#    But "met and might marry" where "might marry" has an intermediate
-#    >B composition step, which can hide the fact that marry was
-#    (unnecessarily) lifted.
+#  But "met and might marry" where "might marry" has an intermediate
+#  >B composition step, which can hide the fact that marry was
+#  (unnecessarily) lifted.
 
 
 def forward_application(item1, item2, dest):
@@ -174,8 +174,7 @@ def forward_composition(item1, item2, dest):
     if sub is None:
         return False  # not composeable
 
-    final_slash = slash.mk_rslash(
-                    slash.modes.join(cat1.slash.mode, cat2.slash.mode))
+    final_slash = cat2.slash
     dest += (
         [Item(category.SlashCategory(cat1.cod, final_slash, cat2.dom),
               semantics.Lam(
@@ -210,8 +209,7 @@ def forward_composition2(item1, item2, dest):
     if sub is None:
         return False  # not composeable
 
-    final_slash = slash.mk_rslash(
-                    slash.modes.join(cat1.slash.mode, cat2.cod.slash.mode))
+    final_slash = cat2.cod.slash
     dest += (
         [Item(category.SlashCategory(
             category.SlashCategory(cat1.cod, final_slash, cat2.cod.dom),
@@ -230,6 +228,7 @@ def forward_composition2(item1, item2, dest):
                             semantics.BoundVar(0))))).reduce()),
             ['>B2', item1, item2]).subst(sub)])
     return True
+
 
 def backwards_composition(item1, item2, dest):
     (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
@@ -251,8 +250,7 @@ def backwards_composition(item1, item2, dest):
     if sub is None:
         return False  # not composeable
 
-    final_slash = slash.mk_lslash(
-                    slash.modes.join(cat1.slash.mode, cat2.slash.mode))
+    final_slash = cat1.slash
     dest += (
         [Item(category.SlashCategory(cat2.cod, final_slash, cat1.dom),
               semantics.Lam(
@@ -263,6 +261,109 @@ def backwards_composition(item1, item2, dest):
                         sem1,
                         semantics.BoundVar(0))).reduce()),
                 ['<B', item1, item2]).subst(sub)])
+    return True
+
+
+def backwards_composition2(item1, item2, dest):
+    (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
+
+    if not(isinstance(cat1, category.SlashCategory) and
+           isinstance(cat1.cod, category.SlashCategory) and
+           cat1.cod.slash <= slash.LCOMPOSE and
+           isinstance(cat2, category.SlashCategory) and
+           cat2.slash <= slash.LCOMPOSE):
+        return False  # not both leftwards functions
+
+    if compose_constraint_violation(item2, item1, 2, '<'):
+        # print("<B constraint violation")
+        # print(item1)
+        # print(item2)
+        # print()
+        return False
+
+    sub = cat1.cod.cod.sub_unify(cat2.dom)
+    if sub is None:
+        return False  # not composeable
+
+    final_slash = cat1.cod.slash
+    dest += (
+        [Item(category.SlashCategory(
+                        category.SlashCategory(
+                            cat2.cod, final_slash, cat1.cod.dom),
+                        cat1.slash,
+                        cat1.dom),
+              semantics.Lam(
+                "w",
+                semantics.Lam(
+                    "z",
+                    semantics.App(
+                        sem2,
+                        semantics.App(
+                            semantics.App(
+                                sem1,
+                                semantics.BoundVar(1)),
+                            semantics.BoundVar(0))))).reduce(),
+              ['<B2', item1, item2]).subst(sub)])
+    return True
+
+
+def forward_crossed_composition(item1, item2, dest):
+    (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
+
+    if not(isinstance(cat1, category.SlashCategory) and
+           cat1.slash <= slash.mk_rslash(slash.ALLOWBX) and
+           isinstance(cat2, category.SlashCategory) and
+           cat2.slash <= slash.mk_lslash(slash.ALLOWBX)):
+        return False  # not appropriate slash categories
+
+    if compose_constraint_violation(item1, item2, 1, '>'):
+        return False
+
+    sub = cat2.cod.sub_unify(cat1.dom)
+    if sub is None:
+        return False  # not composeable
+
+    final_slash = cat2.slash
+    dest += (
+        [Item(category.SlashCategory(cat1.cod, final_slash, cat2.dom),
+              semantics.Lam(
+                "z",
+                semantics.App(
+                    sem1,
+                    semantics.App(
+                        sem2,
+                        semantics.BoundVar(0))).reduce()),
+                ['>Bx', item1, item2]).subst(sub)])
+    return True
+
+
+def backwards_crossed_composition(item1, item2, dest):
+    (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
+
+    if not(isinstance(cat1, category.SlashCategory) and
+           cat1.slash <= slash.mk_rslash(slash.ALLOWBX) and
+           isinstance(cat2, category.SlashCategory) and
+           cat2.slash <= slash.mk_lslash(slash.ALLOWBX)):
+        return False  # not both leftwards functions
+
+    if compose_constraint_violation(item2, item1, 1, '<'):
+        return False
+
+    sub = cat1.cod.sub_unify(cat2.dom)
+    if sub is None:
+        return False  # not composeable
+
+    final_slash = cat1.slash
+    dest += (
+        [Item(category.SlashCategory(cat2.cod, final_slash, cat1.dom),
+              semantics.Lam(
+                "z",
+                semantics.App(
+                    sem2,
+                    semantics.App(
+                        sem1,
+                        semantics.BoundVar(0))).reduce()),
+                ['<Bx', item1, item2]).subst(sub)])
     return True
 
 
@@ -331,7 +432,7 @@ def typeraise_easyccg(item, dest):
 
 def typeraise_candc(item, dest):
     """Taken from Appendix A (p542) of Clark and Curran, 2007."""
-    print("C AND C")
+    # print("C AND C")
     if item.cat == category.NP:
         typeraise_right(category.S, item, dest)
         typeraise_left(category.VBI, item, dest),
@@ -447,7 +548,7 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
         opdir = '<' if dir == '>' else '>'
         if (item1.why and item1.why[0].startswith(dir+'T') and
             item2.why and item2.why[0].startswith(opdir+'B') and
-                item2.why[-1].isdigit() and int(item2.why[-1]) > n):
+                item2.why[0][-1].isdigit() and int(item2.why[0][-1]) > n):
             if DEBUG:
                 print("constraint 4")
             return True
@@ -471,79 +572,6 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
 
     # print("no constraint")
     return False
-
-
-def generalized_forward_composition(item1, item2, dest):
-    # print(f'GeneralizedForwardcomposition: {item1}, {item2}')
-
-    (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
-
-    # We are looking for item1 = (X/Y) and
-    #                    item2 = Y/Z1/Z2.../Zk    (k >= 0)
-    if not (cat1.slash and cat1.slash.dir == slash.RIGHT):
-        # print(f'Not applying a right slash')
-        return
-
-    zs = []
-    right_cat = cat2
-    # print(f'looking for {cat1.dom}')
-    sub = cat1.dom.unify(right_cat)
-    while (sub is None):
-        print(f'loop: right_cat = {right_cat}, sub={sub}')
-        if not (right_cat.slash and
-                right_cat.slash.dir == slash.RIGHT):
-            # we haven't found Y, and we've run out of
-            # Z's to pull off
-            return
-        if ',' in cat1.slash or ',' in right_cat.slash:
-            # We couldn't directly apply,
-            # (otherwise we wouldn't be in the loop)
-            # but a slash annotation forbids composition
-            return
-        zs.append(right_cat.dom)
-        right_cat = right_cat.cod
-        sub = cat1.dom.unify(right_cat)
-
-    # Success... if we've gotten this far, the rule applies
-    # But zs currently contains Zk, ..., Z2, Z1, so we need to reverse
-    zs = list(reversed(zs))
-    nargs = len(zs)
-    # print(f'woohoo. zs = {zs}')
-
-    if compose_constraint_violation(item1, item2, nargs, '>'):
-        # print("constraint violated; skipping")
-        return
-
-    # The output category will be (X/Z1)/.../Zn
-    outcat = functools.reduce(
-        lambda x, y: category.SlashCategory(x, slash.RSLASH, y),
-        [cat1.cod] + zs)
-
-    # The output semantics should be
-    #  \zn...\z2\z1. f (g z1 ... zn)
-
-    # build f's argument.
-    outsem = functools.reduce(
-        semantics.App,
-        [sem2] + [semantics.BoundVar(k)
-                  for k in reversed(range(nargs))])
-
-    # apply f
-    outsem = semantics.App(sem1, outsem)
-    # simplify body
-    outsem = outsem.reduce()
-    # lambda-abstract
-    if len(zs) == 1:
-        # Pick a nicer name than a0 for simple composition
-        outsem = semantics.Lam("a", outsem)
-    else:
-        outsem = functools.reduce(
-            lambda x, y: semantics.Lam(y, x),
-            [outsem] + ["a" + str(i) for i in range(len(zs))])
-
-    outwhy = ['>B' + str(nargs), item1, item2]
-
-    dest += [Item(outcat, outsem, outwhy).subst(sub)]
 
 
 ###############################################
@@ -634,12 +662,15 @@ def test_gfc():
     assert ans9[0].why[0] == '>B0'
 
 
-parsingRules = [[typeraise_simple],
+parsingRules = [[typeraise_candc],
                 [forward_application,
                  backward_application,
                  forward_composition,
                  forward_composition2,
-                 backwards_composition]]
+                 backwards_composition,
+                 backwards_composition2,
+                 forward_crossed_composition,
+                 backwards_crossed_composition]]
 
 
 """

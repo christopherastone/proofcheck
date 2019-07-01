@@ -19,3 +19,35 @@ to : PP[hd=to,ana,3,sg] / NP[ana] = \ g -> g    # XXX agr
 talks : (S \ NP[3,ag]) / PP[hd=to,ana,3,sg] = \ g -> \ y -> g talkto' (ana' y) y
 
 27. "Keats talks to himself"
+
+cooked : (S \ NP) / NP
+ate: (S \ NP) / NP
+
+71. "Keats cooked and ate apples"
+
+might: (S \ NP) / (S \ NP)
+eat : (S \ NP) / NP
+
+75. "Keats cooked and might eat apples"
+
+i : NP
+will : (S \ NP) / (S \ NP)
+show : ((S \ NP) / PP) / NP
+may: (S \ NP) / (S \ NP)
+give: ((S \ NP) / PP) / NP
+a_flower : NP
+to_a_policeman : PP
+
+80. ? "I will show and may give a_flower to_a_policeman"
+
+steals: (S \ NP) / NP
+chapman : NP
+
+86. "Keats steals and Chapman eats apples"
+
+gave: ((S \ NP)  / NP) / NP
+a_teacher : NP
+an_apple : NP
+a_policeman : NP
+
+108. "I gave a_teacher an_apple and a_policeman a_flower" S
