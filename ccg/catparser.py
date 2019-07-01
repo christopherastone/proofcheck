@@ -365,8 +365,11 @@ def p_error(p):
 
 
 # Build the parsers
-parser = yacc.yacc()
-catparser = yacc.yacc(start='cat', errorlog=yacc.NullLogger())
+parser = yacc.yacc(tabmodule='parsetab')
+catparser = yacc.yacc(start='cat', tabmodule='catparsetab',
+                      errorlog=yacc.NullLogger())
+semparser = yacc.yacc(start='sem', tabmodule='semparsetab',
+                      errorlog=yacc.NullLogger())
 
 
 ###########

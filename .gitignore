@@ -8,7 +8,7 @@ __pycache__/
 
 # ply output
 parser.out
-parsetab.py
+*parsetab.py
 
 # personal droppings
 scraps
