@@ -1,0 +1,17 @@
+# Hockenmaier and Bisk 2010
+
+NP :: e
+S :: t
+
+the_man : NP
+that : (NP \ NP) / (S/NP)
+john : NP
+saw : ( S \ NP ) / NP
+
+Figure1. "the_man that john saw"  NP
+
+sue : NP
+ate : (S \ NP) / NP
+happily : S \ S
+
+Figure5. "sue ate happily" S/NP

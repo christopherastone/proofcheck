@@ -70,7 +70,8 @@ class BaseCategory:
         else:
             answer = None
         # print(
-        #     f'BaseCategory: sub_unify of {self} and {other}: answer = {answer}')
+        #     f'BaseCategory: sub_unify of {self} and {other}: '
+        #     f'answer = {answer}')
         return answer
 
     # def __le__(self, other):
@@ -302,9 +303,6 @@ def mk_coord(cat):
         SlashCategory(cat, s.mk_lslash(s.APPLYONLY), cat),
         s.mk_rslash(s.APPLYONLY),
         cat)
-
-
-print(VBT)
 
 
 #####################

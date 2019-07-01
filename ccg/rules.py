@@ -5,7 +5,7 @@ CCG Combinatory Rules
 import functools
 
 import category
-# import formatting
+import catparser
 import semantics
 import slash
 from item import Item
@@ -174,16 +174,18 @@ def forward_composition(item1, item2, dest):
     if sub is None:
         return False  # not composeable
 
+    final_slash = slash.mk_rslash(
+                    slash.modes.join(cat1.slash.mode, cat2.slash.mode))
     dest += (
-        [Item(category.SlashCategory(cat1.cod, slash.RSLASH, cat2.dom),
+        [Item(category.SlashCategory(cat1.cod, final_slash, cat2.dom),
               semantics.Lam(
-            "z",
-            semantics.App(
-                sem1,
+                "z",
                 semantics.App(
-                    sem2,
-                    semantics.BoundVar(0))).reduce()),
-              ['>B', item1, item2]).subst(sub)])
+                    sem1,
+                    semantics.App(
+                        sem2,
+                        semantics.BoundVar(0))).reduce()),
+                ['>B', item1, item2]).subst(sub)])
     return True
 
 
@@ -208,9 +210,11 @@ def forward_composition2(item1, item2, dest):
     if sub is None:
         return False  # not composeable
 
+    final_slash = slash.mk_rslash(
+                    slash.modes.join(cat1.slash.mode, cat2.cod.slash.mode))
     dest += (
         [Item(category.SlashCategory(
-            category.SlashCategory(cat1.cod, slash.RSLASH, cat2.cod.dom),
+            category.SlashCategory(cat1.cod, final_slash, cat2.cod.dom),
             cat2.slash,
             cat2.dom),
             (semantics.Lam(
@@ -225,6 +229,40 @@ def forward_composition2(item1, item2, dest):
                                 semantics.BoundVar(1)),
                             semantics.BoundVar(0))))).reduce()),
             ['>B2', item1, item2]).subst(sub)])
+    return True
+
+def backwards_composition(item1, item2, dest):
+    (cat1, sem1, cat2, sem2) = deconstruct(item1, item2)
+
+    if not(isinstance(cat1, category.SlashCategory) and
+           cat1.slash <= slash.LCOMPOSE and
+           isinstance(cat2, category.SlashCategory) and
+           cat2.slash <= slash.LCOMPOSE):
+        return False  # not both leftwards functions
+
+    if compose_constraint_violation(item2, item1, 1, '<'):
+        # print("<B constraint violation")
+        # print(item1)
+        # print(item2)
+        # print()
+        return False
+
+    sub = cat1.cod.sub_unify(cat2.dom)
+    if sub is None:
+        return False  # not composeable
+
+    final_slash = slash.mk_lslash(
+                    slash.modes.join(cat1.slash.mode, cat2.slash.mode))
+    dest += (
+        [Item(category.SlashCategory(cat2.cod, final_slash, cat1.dom),
+              semantics.Lam(
+                "z",
+                semantics.App(
+                    sem2,
+                    semantics.App(
+                        sem1,
+                        semantics.BoundVar(0))).reduce()),
+                ['<B', item1, item2]).subst(sub)])
     return True
 
 
@@ -600,7 +638,8 @@ parsingRules = [[typeraise_simple],
                 [forward_application,
                  backward_application,
                  forward_composition,
-                 forward_composition2]]
+                 forward_composition2,
+                 backwards_composition]]
 
 
 """

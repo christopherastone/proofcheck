@@ -204,8 +204,12 @@ def diagnose(wds, chart):
     print("=========")
     print("DIAGNOSIS")
     print("=========")
+    print()
 
-    items = []
+    # if there are any full-sentence parses with the wrong category, show a few
+    # but then dig deeper
+    items = chart[(0, nwds-1)][:3]
+
     for i in range(nwds):
         # find the longest parse that includes word i
         diags = set()

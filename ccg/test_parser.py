@@ -6,8 +6,8 @@ Created on Tue May 30 14:13:01 2017
 @author: stone
 """
 
-from category import *
 import chartparser
+from category import *
 import catparser
 import slash
 import sys
@@ -49,7 +49,6 @@ def test_lexicon(filename):
                                            semantics.Const("and"),
                                            semantics.BoundVar(0)),
                                        semantics.BoundVar(1))))))
-
     for (label, sentence, category, expected_count) in sentences:
         chartparser.p(label, sentence, lexicon, category, expected_count)
 
