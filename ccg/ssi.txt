@@ -51,3 +51,11 @@ an_apple : NP
 a_policeman : NP
 
 108. "I gave a_teacher an_apple and a_policeman a_flower" S
+
+i_will : S / (S \ NP)
+to_chapman : (S \ NP) \ ((S \ NP) / PP)
+an_engraving_by_rembrandt : NP
+
+# Interestingly, this does not produce the specific derivation proposed in the book
+#   (though presumably it's equivalent but simpler)
+ 59. "i_will give to_chapman an_engraving_by_rembrandt"
