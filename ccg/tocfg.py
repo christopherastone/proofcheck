@@ -152,15 +152,18 @@ class CCGrammar:
             else:
                 return sentence_count(rule.rhs[0], length)
         else:
-            if (rule, length) not in self.__rule_counts:
-                assert(len(rule.rhs) == 2)
+            assert(len(rule.rhs) == 2)
+            lhs = rule.lhs
+            rhs0 = rule.rhs[0]
+            rhs1 = rule.rhs[1]
+            if (lhs, rhs0, rhs1, length) not in self.__rule_counts:
                 count = 0
                 for k in range(1, length):
                     count += \
-                        self.sentence_count(rule.rhs[0], k) * \
-                        self.sentence_count(rule.rhs[1], length-k)
-                self.__rule_counts[(rule, length)] = count
-            return self.__rule_counts[(rule, length)]
+                        self.sentence_count(rhs0, k) * \
+                        self.sentence_count(rhs1, length-k)
+                self.__rule_counts[(lhs, rhs0, rhs1, length)] = count
+            return self.__rule_counts[(lhs, rhs0, rhs1, length)]
 
     def find_shortest_paths(self):
         self.__shortest_path_dist = \
@@ -182,8 +185,6 @@ class CCGrammar:
         for (src, dst), distance in self.__shortest_path_dist.items():
             if distance != 0 and distance != math.inf:
                 print(f'{src} --- {distance} --> {dst}')
-
-#    def generate(self, length):
 
 
 def test_lexicon(filename):
