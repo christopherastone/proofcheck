@@ -46,18 +46,20 @@ class CCGrammar:
     def __init__(self, filename):
         lexicon_data = open(filename).read().splitlines()
         lexicon = catparser.do_parses(lexicon_data)[0]
-        self.__words = {word: cat for word, infos in lexicon.items()
-                        for cat, sem in infos}
+        self.__words = {word: [cat for cat, sem in infos]
+                        for word, infos in lexicon.items()}
 
         self.__catmap_unary = collections.defaultdict(list)
-        for word, cat in self.__words.items():
-            self.__catmap_unary[cat].append(word)
+        for word, cats in self.__words.items():
+            for cat in cats:
+                self.__catmap_unary[cat].append(word)
 
         all_cats = self.__catmap_unary.keys()
 
         self.__rules = []
-        for word, cat in self.__words.items():
-            self.__rules.append(Rule(cat, [word]))
+        for word, cats in self.__words.items():
+            for cat in cats:
+                self.__rules.append(Rule(cat, [word]))
 
         self.__singletons = set()
         for cat in all_cats:
