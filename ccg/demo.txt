@@ -1,5 +1,8 @@
 S :: t
 NP :: e
 
-fido : NP[sg];
-eats : (S \ NP[sg]) / NP
+fido : NP
+eats : (S \ NP) / NP
+cheese: NP
+sleeps : S \ NP
+silently : S \ S

@@ -2,6 +2,7 @@ import catparser
 import category
 import collections
 import math
+import random
 import slash
 import sys
 
@@ -29,6 +30,16 @@ class Rule:
 
     def __hash__(self):
         return hash((self.slhs, self.srhs))
+
+
+class BadPhraseLength(BaseException):
+
+    def __init__(self, cat, length):
+        self.cat = cat
+        self.length = length
+
+    def __repr__(self):
+        return f'BadPhraseLength({self.cat},{self.length})'
 
 
 class CCGrammar:
@@ -135,7 +146,11 @@ class CCGrammar:
             for rule in self.__rules:
                 if len(rule.rhs) == 2 and cat == rule.lhs:
                     count += self.rule_count(rule, length)
+            print(f'sentence_count {cat} {length} := {count}')
             self.__sentence_counts[(cat, length)] = count
+        else:
+            print(
+                f'  sentence_count {cat} {length} == {self.__sentence_counts[(cat, length)]}')
 
         return self.__sentence_counts[(cat, length)]
 
@@ -156,14 +171,19 @@ class CCGrammar:
             lhs = rule.lhs
             rhs0 = rule.rhs[0]
             rhs1 = rule.rhs[1]
-            if (lhs, rhs0, rhs1, length) not in self.__rule_counts:
+            key = (lhs, rhs0, rhs1, length)
+            if key not in self.__rule_counts:
                 count = 0
                 for k in range(1, length):
                     count += \
                         self.sentence_count(rhs0, k) * \
                         self.sentence_count(rhs1, length-k)
-                self.__rule_counts[(lhs, rhs0, rhs1, length)] = count
-            return self.__rule_counts[(lhs, rhs0, rhs1, length)]
+                self.__rule_counts[key] = count
+                print(f'rule_count {lhs} -> {rhs0} {rhs1} {length} := {count}')
+            else:
+                print(
+                    f'  rule_count {lhs} -> {rhs0} {rhs1} {length} == {self.__rule_counts[key]}')
+            return self.__rule_counts[key]
 
     def find_shortest_paths(self):
         self.__shortest_path_dist = \
@@ -186,20 +206,52 @@ class CCGrammar:
             if distance != 0 and distance != math.inf:
                 print(f'{src} --- {distance} --> {dst}')
 
+    def generate(self, cat, length, threshold=1.0):
+        print(cat, length)
+        if (self.sentence_count(cat, length) == 0):
+            raise BadPhraseLength(cat, length)
+
+        if length == 1:
+            words = self.__catmap_unary[cat]
+            num_words = len(words)
+            # We already know from above that there is at least one sentence
+            # of length 1, and all such sentences are single words.
+            assert num_words > 0
+            n = random.randrange(num_words)
+            return [words[n]]
+
+        choices = self.__catmap_binary[cat]
+        num_choices = len(choices)
+        assert(num_choices > 0)
+        while True:
+            n = random.randrange(num_choices)
+            rhs0, rhs1 = choices[n]
+            k = random.randrange(1, length)
+            try:
+                words0 = self.generate(rhs0, k, threshold)
+                words1 = self.generate(rhs1, length-k, threshold)
+                return words0 + words1
+            except BadPhraseLength as e:
+                print("backtracking")
+                pass
+
 
 def test_lexicon(filename):
     ccgrammar = CCGrammar(filename)
     ccgrammar.print_rules()
     print("~~~~~")
-    ccgrammar.show_sentence_counts(5)
-    # print("~~~~~")
+    ccgrammar.show_sentence_counts(3)
+    print("~~~~~")
     # ccgrammar.print_graph()
     # print("~~~~~")
     # ccgrammar.find_shortest_paths()
     # ccgrammar.print_shortest_paths()
+    print(ccgrammar.generate(category.S, 3))
+    print(ccgrammar.generate(category.S, 4))
 
 
 if __name__ == '__main__':
+    random.seed()
     if len(sys.argv) > 1:
         for filename in sys.argv[1:]:
             test_lexicon(filename)
