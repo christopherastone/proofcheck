@@ -37,20 +37,27 @@ class CCGrammar:
         lexicon = catparser.do_parses(lexicon_data)[0]
         self.__words = {word: cat for word, infos in lexicon.items()
                         for cat, sem in infos}
-        worklist = set(self.__words.values())
+
+        self.__catmap_unary = collections.defaultdict(list)
+        for word, cat in self.__words.items():
+            self.__catmap_unary[cat].append(word)
+
+        all_cats = self.__catmap_unary.keys()
 
         self.__rules = []
         for word, cat in self.__words.items():
             self.__rules.append(Rule(cat, [word]))
 
         self.__singletons = set()
-        for cat in worklist:
+        for cat in all_cats:
             self.add_singletons(cat)
         for word in self.__singletons:
             self.__rules.append(Rule(category.SingletonCategory(word), [word]))
 
+        worklist = set(all_cats)
         self.__graph = collections.defaultdict(list)
         self.__categories = set()
+        self.__catmap_binary = collections.defaultdict(list)
         while worklist:
             new = worklist.pop()
             # print(f'considering {new}')
@@ -62,6 +69,16 @@ class CCGrammar:
 
         self.__sorted_categories = list(self.__categories)
         self.__sorted_categories.sort(key=lambda x: (len(str(x))))
+
+        # memo pad for sentence_count function
+        #  We initialize here the singleton words, leaving the
+        #  sentence_count function to care only about binary rules
+        self.__sentence_counts = {}
+        for cat in self.__categories:
+            self.__sentence_counts[(cat, 1)] = len(self.__catmap_unary[cat])
+
+        # memo_pad for rule_count function
+        self.__rule_counts = {}
 
     def add_singletons(self, cat):
         if isinstance(cat, category.SingletonCategory):
@@ -83,10 +100,12 @@ class CCGrammar:
                 lhs = functor.cod.subst(sub)
                 if functor.slash.dir in [slash.LEFT, slash.UNDIRECTED]:
                     self.__rules.append(Rule(lhs, [argument, functor]))
+                    self.__catmap_binary[lhs].append((argument, functor))
                     self.__graph[functor].append(("functor <", argument, lhs))
                     self.__graph[argument].append(("argument <", functor, lhs))
                 if functor.slash.dir in [slash.RIGHT, slash.UNDIRECTED]:
                     self.__rules.append(Rule(lhs, [functor, argument]))
+                    self.__catmap_binary[lhs].append((functor, argument))
                     self.__graph[functor].append(("functor >", argument, lhs))
                     self.__graph[argument].append(("argument >", functor, lhs))
 
@@ -106,39 +125,42 @@ class CCGrammar:
             for label, other, stop in self.__graph[start]:
                 print(f'{start} -> {stop} by {label} with {other}')
 
-    def sentence_counts(self, upto=5, show_counts=True):
-        """returns a dictionary mapping (category, number of words)
-           keys to the integer number of matching sentences allowed
-           by the grammar. Valid numbers of words run from 1 up to
-           and including the value of the upto parameter."""
+    def sentence_count(self, cat, length):
+        """returns the number of sentences of the given length
+           that can be generated from the given starting category."""
 
-        # We could turn this dynamic programming algorithm into a
-        # memoized recursive function, and only compute the numbers
-        # on demand...
+        assert(length > 0)
+        if (cat, length) not in self.__sentence_counts:
+            count = 0
+            for rule in self.__rules:
+                if len(rule.rhs) == 2 and cat == rule.lhs:
+                    count += self.rule_count(rule, length)
+            self.__sentence_counts[(cat, length)] = count
 
-        counts = collections.defaultdict(int)
+        return self.__sentence_counts[(cat, length)]
 
-        for rule in self.__rules:
-            if len(rule.rhs) == 1 and isinstance(rule.rhs[0], str):
-                counts[(rule.lhs, 1)] += 1
+    def show_sentence_counts(self, upto=5):
+        for cat in self.__sorted_categories:
+            for wds in range(1, upto+1):
+                print(f'{cat} has {self.sentence_count(cat, wds)}'
+                      f' of length {wds}')
 
-        for l in range(2, upto+1):
-            for cat in self.__categories:
-                for rule in self.__rules:
-                    if len(rule.rhs) == 2 and cat == rule.lhs:
-                        for k in range(1, l):
-                            counts[(cat, l)] += \
-                                counts[(rule.rhs[0], k)] * \
-                                counts[(rule.rhs[1], l-k)]
-
-        if show_counts:
-            table = list(counts.items())
-            table.sort(key=lambda x:  (
-                len(str(x[0][0])), str(x[0][0]), x[0][1]))
-            for ((cat, wds), count) in table:
-                print(f'{cat} has {count} of length {wds}')
-
-        return counts
+    def rule_count(self, rule, length):
+        if len(rule.rhs) == 1:
+            if isinstance(rule.rhs[0], str):
+                return 1 if length == 1 else 0
+            else:
+                return sentence_count(rule.rhs[0], length)
+        else:
+            if (rule, length) not in self.__rule_counts:
+                assert(len(rule.rhs) == 2)
+                count = 0
+                for k in range(1, length):
+                    count += \
+                        self.sentence_count(rule.rhs[0], k) * \
+                        self.sentence_count(rule.rhs[1], length-k)
+                self.__rule_counts[(rule, length)] = count
+            return self.__rule_counts[(rule, length)]
 
     def find_shortest_paths(self):
         self.__shortest_path_dist = \
@@ -161,17 +183,19 @@ class CCGrammar:
             if distance != 0 and distance != math.inf:
                 print(f'{src} --- {distance} --> {dst}')
 
+#    def generate(self, length):
+
 
 def test_lexicon(filename):
     ccgrammar = CCGrammar(filename)
     ccgrammar.print_rules()
     print("~~~~~")
-    ccgrammar.sentence_counts(5)
-    print("~~~~~")
-    ccgrammar.print_graph()
-    print("~~~~~")
-    ccgrammar.find_shortest_paths()
-    ccgrammar.print_shortest_paths()
+    ccgrammar.show_sentence_counts(5)
+    # print("~~~~~")
+    # ccgrammar.print_graph()
+    # print("~~~~~")
+    # ccgrammar.find_shortest_paths()
+    # ccgrammar.print_shortest_paths()
 
 
 if __name__ == '__main__':
