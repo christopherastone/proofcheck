@@ -1,0 +1,5 @@
+S :: t
+NP :: e
+
+fido : NP[sg];
+eats : (S \ NP[sg]) / NP

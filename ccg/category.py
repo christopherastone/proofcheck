@@ -36,6 +36,9 @@ class BaseCategory:
         else:
             return f'BaseCategory({self.__cat!r},{self.__semty!r})'
 
+    def __hash__(self):
+        return hash((self.cat, self.attrs))
+
     @property
     def cat(self):
         return self.__cat
@@ -98,6 +101,9 @@ class SingletonCategory:
     def __repr__(self):
         return f'SingletonCategory({self.word!r})'
 
+    def __hash__(self):
+        return hash(self.word)
+
     @property
     def word(self):
         return self.__word
@@ -152,6 +158,9 @@ class SlashCategory:
         self.__cod = cod
         self.__dom = dom
 
+    def __hash__(self):
+        return hash((self.cod, self.slash, self.dom))
+
     @property
     def cod(self):
         return self.__cod
@@ -170,8 +179,7 @@ class SlashCategory:
                f'{self.__dom!r}'
 
     def __str__(self):
-        answer = \
-            f'{self.cod.with_parens()}{self.slash}{self.dom.with_parens()}'
+        answer = f'{self.cod.with_parens()}{self.slash}{self.dom.with_parens()}'
         if len(answer) > 35:
             answer = "..."
         return answer
@@ -242,6 +250,9 @@ class CategoryMetavar:
     def __str__(self):
         return f'{self.hint}'
         # f'M[{self.hint}:{id(self)}]'
+
+    def __hash__(self):
+        return hash(self.hint)
 
     def with_parens(self):
         return str(self)

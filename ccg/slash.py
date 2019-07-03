@@ -56,11 +56,23 @@ class Slash:
         return self.__mode
 
     def __repr__(self):
-        return self.dir + self.mode
+        if self.mode == ANYRULE:
+            return self.dir
+        else:
+            return self.dir + self.mode
+
+    def __hash__(self):
+        return hash((self.dir, self.mode))
 
     # def __repr__(self):
     #     return f'Slash({self.dir!r},{self.mode!r})'
 
+    def __eq__(self, other):
+        return (isinstance(other, Slash) and
+                self.dir == other.dir and
+                self.mode == other.mode)
+
+    # XXX: Should undirected be < or > directed???
     def __le__(self, other):
         return (isinstance(other, Slash) and
                 (self.dir == other.dir or other.dir == UNDIRECTED) and

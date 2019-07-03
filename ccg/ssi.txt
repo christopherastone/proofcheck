@@ -1,6 +1,6 @@
 NP :: e
 S :: t
-PP : e -> e
+PP :: e -> e
 
 keats : NP[3,sg,m]
 eats : (S \ NP[3,sg]) / NP = \ x -> \ y -> ((eat' x) y)
