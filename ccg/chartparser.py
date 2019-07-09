@@ -247,12 +247,13 @@ def p(label, sentence, lexicon=LEXICON,
               f'for GOAL {goal_category}' if goal_category is not None else "")
         print(f'Expected {expected_count}, found {len(items)}')
         if len(items) == 0:
+            dump(sentence, lexicon)
             diagnose(wds, chart)
         elif len(items) > expected_count:
-            for item in items[:expected_count+2]:
+            for item in items[:expected_count+4]:
                 item.display()
                 print()
-            if len(items) > expected_count + 2:
+            if len(items) > expected_count + 4:
                 print("...etc...\n")
         else:
             dump(sentence, lexicon)

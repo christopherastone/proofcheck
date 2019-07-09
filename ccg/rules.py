@@ -76,6 +76,9 @@ def forward_application(item1, item2, dest):
         # print()
         return False
 
+    if forbidden_combination(item1.why, item2.why, '>'):
+        return False
+
     sub = cat2.sub_unify(cat1.dom)
     if sub is None:
         # print(f'forward_application: {cat2} <= {cat1.dom}: nope 2')
@@ -138,6 +141,9 @@ def backward_application(item1, item2, dest):
         # print()
         return False
 
+    if forbidden_combination(item1.why, item2.why, '<'):
+        return False
+
     sub = cat1.sub_unify(cat2.dom)
     if sub is None:
         return False  # application category mismatch
@@ -168,6 +174,9 @@ def forward_composition(item1, item2, dest):
         # print(item1)
         # print(item2)
         # print()
+        return False
+
+    if forbidden_combination(item1.why, item2.why, '>B'):
         return False
 
     sub = cat2.cod.sub_unify(cat1.dom)
@@ -203,6 +212,9 @@ def forward_composition2(item1, item2, dest):
         # print(item1)
         # print(item2)
         # print()
+        return False
+
+    if forbidden_combination(item1.why, item2.why, '>B2'):
         return False
 
     sub = cat2.cod.cod.sub_unify(cat1.dom)
@@ -246,6 +258,9 @@ def backwards_composition(item1, item2, dest):
         # print()
         return False
 
+    if forbidden_combination(item1.why, item2.why, '<B1'):
+        return False
+
     sub = cat1.cod.sub_unify(cat2.dom)
     if sub is None:
         return False  # not composeable
@@ -279,6 +294,9 @@ def backwards_composition2(item1, item2, dest):
         # print(item1)
         # print(item2)
         # print()
+        return False
+
+    if forbidden_combination(item1.why, item2.why, '<B2'):
         return False
 
     sub = cat1.cod.cod.sub_unify(cat2.dom)
@@ -319,6 +337,9 @@ def forward_crossed_composition(item1, item2, dest):
     if compose_constraint_violation(item1, item2, 1, '>'):
         return False
 
+    if forbidden_combination(item1.why, item2.why, '>Bx'):
+        return False
+
     sub = cat2.cod.sub_unify(cat1.dom)
     if sub is None:
         return False  # not composeable
@@ -347,6 +368,9 @@ def backwards_crossed_composition(item1, item2, dest):
         return False  # not both leftwards functions
 
     if compose_constraint_violation(item2, item1, 1, '<'):
+        return False
+
+    if forbidden_combination(item1.why, item2.why, '<Bx'):
         return False
 
     sub = cat1.cod.sub_unify(cat2.dom)
@@ -573,6 +597,46 @@ def compose_constraint_violation(item1, item2, n, dir='>'):
     # print("no constraint")
     return False
 
+def forbidden_combination(why_left, why_right, conclusion_rulename):
+    #
+    #  Hockenmaier and Bisk 2004, page 467
+    #
+    # In order to prevent overgenerations of the form
+    # "John speaks because Chinese, he enjoys Beijing.",
+    # we assume a variant of CCG in which forward crossing
+    # composition >Bx (e.g. of because:(S/S)/S) into
+    # the result of backward type-raising <T
+    # (e.g. Chinese:S\(S/NP)) ... are disallowed
+
+    #                     A
+    #                 ----------- <T
+    #    X / Y        Y \ (Y / A)
+    #   -------------------------- >Bx
+    #         X \ (Y / A)
+
+    if why_right is not None and \
+        why_right[0].startswith('<T') and \
+            conclusion_rulename.startswith('>Bx'):
+        return True
+
+    # and, similarly, <Bx into the result of >T [is] disallowed.
+    #  (I think they mean <Bx, not <B^n, but there's a typo
+    #  where they wrote <B^x. And I think "into" means
+    #  the left premise)
+
+    #        A
+    #   ------------ >T
+    #    Y / (Y \ A)           X \ Y
+    #   ------------------------------ <Bx
+    #             X / (Y \ A)
+
+    if why_left is not None and \
+        why_left[0].startswith('>T') and \
+        conclusion_rulename.startswith('<Bx'):
+        return True
+
+    # otherwise, seems OK
+    return False
 
 ###############################################
 # TESTING SUPPORT
@@ -588,6 +652,7 @@ s_np_s = category.SlashCategory(s_np, slash.RSLASH, category.S)
 s_np_s_np = category.SlashCategory(s_np_s, slash.RSLASH, category.NP)
 # (S/NP) / (S/NP)
 s_np__s_np = category.SlashCategory(s_np, slash.RSLASH, s_np)
+
 
 
 def do_fwdcompose(cat1, cat2):
@@ -662,7 +727,7 @@ def test_gfc():
     assert ans9[0].why[0] == '>B0'
 
 
-parsingRules = [[typeraise_candc],
+parsingRules = [[typeraise_generic],
                 [forward_application,
                  backward_application,
                  forward_composition,

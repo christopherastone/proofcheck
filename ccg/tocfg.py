@@ -152,7 +152,8 @@ class CCGrammar:
             self.__sentence_counts[(cat, length)] = count
         else:
             print(
-                f'  sentence_count {cat} {length} == {self.__sentence_counts[(cat, length)]}')
+                f'  sentence_count {cat} {length} == '
+                f'{self.__sentence_counts[(cat, length)]}')
 
         return self.__sentence_counts[(cat, length)]
 
@@ -184,7 +185,8 @@ class CCGrammar:
                 print(f'rule_count {lhs} -> {rhs0} {rhs1} {length} := {count}')
             else:
                 print(
-                    f'  rule_count {lhs} -> {rhs0} {rhs1} {length} == {self.__rule_counts[key]}')
+                    f'  rule_count {lhs} -> {rhs0} {rhs1} {length} '
+                    f'== {self.__rule_counts[key]}')
             return self.__rule_counts[key]
 
     def find_shortest_paths(self):
@@ -242,14 +244,15 @@ def test_lexicon(filename):
     ccgrammar = CCGrammar(filename)
     ccgrammar.print_rules()
     print("~~~~~")
-    ccgrammar.show_sentence_counts(3)
+    ccgrammar.show_sentence_counts(2)
     print("~~~~~")
     # ccgrammar.print_graph()
     # print("~~~~~")
     # ccgrammar.find_shortest_paths()
     # ccgrammar.print_shortest_paths()
-    print(ccgrammar.generate(category.S, 3))
-    print(ccgrammar.generate(category.S, 4))
+    print(ccgrammar.generate(category.S, 2))
+    # print(ccgrammar.generate(category.S, 3))
+    # print(ccgrammar.generate(category.S, 4))
 
 
 if __name__ == '__main__':

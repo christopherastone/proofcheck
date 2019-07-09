@@ -35,9 +35,9 @@ W :: e
 foo : Y / Z
 bar : X \x Y
 
-test1. "foo bar"
+test1. "foo bar" X/Z
 
-#foop : Y \* Z
-#barp : X \* Y
+foop : X
+barp : Y
 
-#test2. * "foop barp"
+test2. "foop barp"

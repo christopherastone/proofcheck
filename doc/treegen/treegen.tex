@@ -1,0 +1,205 @@
+\documentclass[12pt]{article}
+\usepackage[letterpaper]{geometry}
+\usepackage{amsmath}
+
+\title{Generating Instances from a Context-Free Language with a Specified Sub-Production}
+\author{Christopher A. Stone}
+\date{July 3, 2019}
+
+% chktex-file 46
+% chktex-file 21
+
+\begin{document}
+\maketitle
+
+\section{Mairson's Algorithm}
+
+Harry Mairson's 1994 paper ``Generating Words in a Context-Free Language Uniformly at Random'' provides several algorithms for generating $n$-word sentences. It assumes we are given a context-free grammar in Chomsky Normal Form (CNF), where all productions are either unary productions of the form $A\to a$ (nonterminal to terminal) or binary productions of the form $A\to BC$ (nonterminal to two nonterminals).\footnote{If the context-free language is supposed to contain the empty string, CNF formally permits a special rule $S\to\epsilon$ for a start symbol $S$ that does not appear on the right-hand-side of any rule. This can be largely ignored for sentence generation, since it only affects whether the grammar has zero or one zero-word sentences.}  If the grammar is unambiguous, then all $n$-word sentences are equally likely to be produced.
+
+Marson's ``basic'' algorithm proceeds as follows:
+
+\begin{enumerate}
+    \item For each nonterminal $X$, define $\|X\|_n$ to be the number of $n$-word sentences that can be produced starting from $X$. This can be defined by recursion on $n$ since
+    \[
+        \begin{array}{lcl@{\qquad}l}
+        \|X\|_1 &=& \displaystyle\sum_{(X{\to} a)\in G}\  1\\
+        \noalign{\medskip}
+        \|X\|_n &=& \displaystyle\sum_{(X{\to} AB)\in G}\  \sum_{i=1}^{n-1}\|A\|_i\times\|B\|_{n-i}&\mbox{for $n>1$}\\
+        \end{array}
+    \]
+    and the recursive definition can be efficiently impemented using memoization or dynamic programming.
+
+    \item Define $\|A\to BC\|_n$ to be the number of $n$-word sentences that can be produced starting from the step $A\to BC$ (i.e., whose parse tree has $A$ as root with $B$ and $C$ as children of the root). We can define this by:
+    \[
+        \begin{array}{lcl}
+        \|A\to a\|_n &:=& \begin{cases}
+                            1 &\quad\mbox{if n = 1}\\
+                            0 &\quad\mbox{otherwise}\\
+                          \end{cases}\\
+        \noalign{\medskip}
+        \|A\to BC\|_n &:=& \displaystyle\sum_{i=1}^{n-1}\|A\|_i\times\|B\|_{n-i}
+    \end{array}
+    \]
+
+    Note that with this notation we can write the previous definition more perspicaciously as:
+    \[
+        \begin{array}{lcl@{\qquad}l}
+        \|X\|_1 &:=& \displaystyle\sum_{(X{\to} a)\in G}\  1\\
+        \noalign{\medskip}
+        \|X\|_n &:=& \displaystyle\sum_{(X{\to} AB)\in G}\  \|X{\to}AB\|_n\qquad\mbox{for $n>1$}\\
+        \end{array}
+    \]
+    This variant remains a well-defined (mutual) recursion that can be efficiently computed using memoization or dynamic programming.\footnote{
+    We could simplify even further to just
+    \[
+        \begin{array}{lcl@{\qquad}l}
+        \|X\|_n &:=& \displaystyle\sum_{(X{\to} \alpha)\in G}\  \|X{\to}\alpha\|_n\quad\mbox{for all $n$}\\
+        \end{array}
+    \]
+    but the previous definitions are probably more efficient in practice.}
+
+    \item Suppose we want to generate an $n$-word sentence starting from $Y$.
+    If $n = 1$, we simply choose a random production $Y \to a$. Otherwise,
+    pick a production $Y\to EF$ with probability
+    \[\frac{\|Y \to EF\|_n}{\|Y\|_n} \]
+    followed by a split value $k$ where $k\in{1..(n-1)}$ is chosen with probability
+    \[
+      \frac{\|E\|_k\times\|F\|_{n{-}k}}{\|Y\to EF\|_n}
+    \]
+    Then randomly generate a $k$-word subtree $E$ and an $(n{-}k)$-word subtree $F$.
+\end{enumerate}
+
+\section{Requiring a Specified Subderivation}
+
+Suppose we are interested in generating random sentences that contain a particular sub-production $D \Rightarrow^* \vec{w}$ (i.e., that contain a particular subtree of the parse tree with root $D$ and leaves $\vec{w}$). We will often denote this fixed sub-production/subtree as $\Delta$.
+We can simply proceed as before, but instead of using probabilities based on  the number of $n$-word sentences, we calculate the number of $n$-word sentences that include $\Delta$ in their derivation.
+
+For each nonterminal $X$, define $\|X^\Delta\|_n$ to be the number of $n$-word sentences derivable starting from $X$ with (somewhere) the sub-derivation $\Delta$.
+
+Next, for each production $X\to AB$ we define $\|X\to A^\Delta B\|_n$ to be the number of $n$-word sentences derivable starting with the production $X\to AB$ such that $\Delta$ appear somewhere in the derivation for $A$, and define
+$\|X\to AB^\Delta\|_n$ similarly except that $\Delta$ must appear somewhere in the derivation for $B$.
+
+We can calculate these values as follows, again by recursion on $n$. (Recall that $\Delta$ abbreviates $D\to \vec{w}$)
+
+\[
+    \begin{array}{lcl}
+    \|X^\Delta\|_n &:=&0 \qquad \mbox{if $n < |\vec{w}|$ or ($n = |\vec{w}|$ and $X$ is not $D$)}\\
+    \noalign{\medskip}
+    \|X^\Delta\|_n &:=& 1 \qquad \mbox{if $n = |\vec{w}|$ and $X$ is $D$}\\
+    \noalign{\medskip}
+    \|X^\Delta\|_n &:=& \displaystyle\sum_{(X{\to}AB)\in G} (\|X\to A^\Delta B|_n + \|X\to AB^\Delta\|n)\\
+    \noalign{\medskip}
+    \|X\to A^\Delta B\|_n & := & \displaystyle\sum_{i=1}^{n-1}\|A^\Delta\|_i\times\|B\|_{n-i} \ =\  \sum_{i=|\vec{w}|}^{n-1}\|A^\Delta\|_i\times\|B\|_{n-i}\\
+    \noalign{\medskip}
+    \|X\to AB^\Delta\|_n & := & \displaystyle\sum_{i=1}^{n-1}\|A\|_{n-i}\times\|B^\Delta\|_{i} \ = \ \displaystyle\sum_{i=|\vec{w}|}^{n-1}\|A\|_{n-i}\times\|B^\Delta\|_{i}\\
+    \end{array}
+\]
+
+Suppose we want to to produce an $n$-word sentence with sub-derivation $\Delta$ starting from $Y$. If $n \leq |\vec{w}|$ then $Y$ had better be $D$ and $n$ had better be $|\vec{w}|$, in which case the answer is $w$ (or $\Delta$ if we're generating trees rather than flat sentences). Otherwise (if $n > |\vec{w}|$) we must choose a binary production for $Y$ and decide which side must contain $\Delta$. Specifically, we choose $Y \to EF$ and place $\Delta$ in the left subtree $E$ or the right subtree $F$ with probabilities
+\[ \frac{\|Y\to E^\Delta F\|_n}{\|Y^\Delta\|_n}
+\qquad\mbox{or}\qquad
+\frac{\|Y\to EF^\Delta\|_n}{\|Y^\Delta\|_n}
+\]
+respectively.
+\goodbreak{}
+
+If we decided to put $\Delta$ in the left subtree, then we must find a split value $k\in |\vec{w}|..(n{-}1)$ inclusive, and recursively generate a $k$-word sentence containing $\Delta$ starting from $E$, along with an $(n{-}k)$-word sentence starting from $F$ (where this latter sentence is generated according to the
+original algorithm). We pick the random split value $k$ with probability
+\[
+    \frac{\|C^\Delta\|_k\times \|D\|_{n{-}k}}{\|Y \to C^\Delta D\|}
+\]
+
+
+Similarly, if we decided to put $\Delta$ in the right subtree, then we need an $(n{-}k)$-word sentence starting from $E$ and a $k$-word sentence containing $\Delta$ starting from $F$, where $k \in |\vec{w}|..(n{-}1)$ inclusive is chosen with probability
+\[
+    \frac{\|C\|_{n{-}k}\times \|D^\Delta\|_k}{\|Y \to CD^\Delta\|}
+\]
+
+\section{Applying this to CCG sentence generation}
+
+My goal is to generate sentences as test cases for the CCG lexicon. In general, there is a single word $w$ that we care about, and want to see whether its lexical category (i.e., the way that $w$ affects the corresponding context-free grammar) leads to reasonable-sounding sentences.
+
+\begin{itemize}
+\item if we want to test the slash structure or the base-category features, then we want a tree that
+\item if we want to check whether a ``positive'' slash is harmonic, then we want to apply $w$ to enough arguments to expose that slash, and then compose (using one of several possible composition rules) with something appropriate.  Or we want to pass it to some other higher-order function that requires a harmonic function as input\ldots
+\item if we want to check whether a ``negative'' slash is harmonic, we want to,umm\ldots, pass non-harmonic functions in, and confirm that grammatical errors result?
+\end{itemize}
+
+So instead of a full and pre-specified tree \Delta, we only have some vague constraints about the tree.  We don't know the root, or the depth, just that there's a particular use of the word $w$ somewhere inside. But we can't just say that the word $w$ by itself is the required subtree. We want $w$ to be in all the generated sentences, but that's not enough by itself --- in general, we want $w$ to be used in the right way, e.g., a tree that has a composition step where one of the operands is the result of applying $w$ to arguments.
+
+Possibly the same ideas will work, but we have to be even more careful about figuring out
+\begin{enumerate}
+    \item What sort of subtree $\Delta$ we want to require
+    \item How that affects the counts (including counting the number of subtrees
+    that have an appropriate structure, so we know whether it's time to pick
+    one of those trees, or to pick an arbitrary rule and recurse-left or recurse-right).
+\end{enumerate}
+
+\section{Recasting Mairson's Algorithm for Purely Applicative CCG}
+
+\newcommand{\C}{\ensuremath{{\cal C}}}
+\newcommand{\D}{\ensuremath{{\cal D}}}
+\newcommand{\T}{\ensuremath{{\cal T}}}
+\newcommand{\CAT}{\ensuremath{\mbox{CAT}}}
+\newcommand{\LEX}{\ensuremath{\mbox{LEX}}}
+
+Instead of atomic nonterminals, we have general CCG categories such as PP, NP/S or (S\textbackslash{} NP)/NP{}. We will denote arbitrary categories as $\C$, $\D$, $\T$, etc.
+
+
+We recast the above definitions as follows:
+\begin{itemize}
+    \item
+For each category $\C$ we define $\|\C\|_n$, the number of $n$-word sentences that can be produced in category $\C$.
+\item We define $\| (\C/\D)\ \D\|_n$ to be the number of $n$-word sentences in category \(\C\) that can be produced by forward application of a phrase of category \(\C/\D\) to a phrase of category $\D$, and similarly for \(\| \D\ (\C\backslash \D)\|_n\)
+
+\end{itemize}
+
+Given a finite lexicon $\LEX$, there is a finite set \CAT{} of categories that can be produced using zero or more applications (forward or backward). Consequently,
+for any category \(\C \in \CAT\), there is a finite number of ways to build
+category $C$ using forward or backward application (i.e., a finite number
+of \(\D\in\CAT\) such that \((\C/\D)\in\CAT\) or \((\C\backslash \D)\in\CAT\)). Then
+
+\[
+    \begin{array}{lcl}
+    \|\C\|_1 &:=& \displaystyle\sum_{(w{:}\C)\in \LEX}\  1\\
+    \noalign{\medskip}
+    \|\C\|_n &:=& \displaystyle\sum_{\C/\D\in\CAT}\  \|(\C/\D)\ \D\|_n +
+    \sum_{\C\backslash\D\in\CAT}\ \| \D\ (\C\backslash \D)\|_n\qquad\mbox{for $n>1$}
+    \end{array}
+\]
+where
+\[
+    \begin{array}{lcl}
+    \|(\C/\D)\ \D\|_n &:=& \displaystyle\sum_{i=1}^{n-1}\ \|\C/\D\|_i\times\|\D\|_{n-i}\\
+    \noalign{\medskip}
+    \|\D\ (\C\backslash \D)\|_n &:=& \displaystyle\sum_{i=1}^{n-1}\ \|\D\|_i\times\|\C\backslash \D\|_{n-i}
+
+\end{array}
+\]
+
+Now suppose we want to create a random phrase of category $\C$ with $n$ words.
+If $n = 1$, we pick a random word from $LEX$ of category  $\C$. Otherwise, we pick categories \(\C_1,\C_2\in\CAT\) with probability
+\[
+\frac{\|\C_1\ \C_2\|_n}{\|\C\|_n}
+\]
+where either $\C_1 = (\C/\D)$ and $\C_2 = \D$ or else \(\C_1=\D\) and \(\C_2= \C\backslash\D\). Then pick a split value $k\in 1..(n-1)$ with probability
+\[
+    \frac{\|\C_1\|_k\times\|\C_2\|_{n{-}k}}{\|\C_1\ \C_2\|_n}
+  \]
+  Then randomly generate a $k$-word phrase of category \(\C_1\) and an \((n{-}k)\)-word phrase of category \(\C_2\).
+
+
+
+
+\section{Conclusion and Future Work}
+
+The above algorithm produces random parse trees containing a specified subtree.
+It seems likely that this maintains the ``uniform distribution of outputs'' property, but this has not been formally proved.
+
+Although the formula suggests that the probabilities are a function of $\Delta$, in practice what matters is the root $D$ of $\Delta$ and the number of fixed words $|\vec{w}|$.
+
+Mairson's paper goes on to describe a more efficient (linear time) algorithm that requires more pre-computation. It seems likely that it can be adapted to include a specified subtree as well, but I haven't checked.
+
+
+
+\end{document}
