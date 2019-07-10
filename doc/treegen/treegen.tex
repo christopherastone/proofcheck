@@ -1,10 +1,11 @@
-\documentclass[12pt]{article}
+\documentclass[10pt]{article}
 \usepackage[letterpaper]{geometry}
 \usepackage{amsmath}
 
 \title{Generating Instances from a Context-Free Language with a Specified Sub-Production}
 \author{Christopher A. Stone}
-\date{July 3, 2019}
+\date{\today}
+% Started on July 3, 2019
 
 % chktex-file 46
 % chktex-file 21
@@ -137,9 +138,12 @@ Possibly the same ideas will work, but we have to be even more careful about fig
 
 \section{Recasting Mairson's Algorithm for Purely Applicative CCG}
 
+\newcommand{\A}{\ensuremath{{\cal A}}}
+\newcommand{\B}{\ensuremath{{\cal B}}}
 \newcommand{\C}{\ensuremath{{\cal C}}}
 \newcommand{\D}{\ensuremath{{\cal D}}}
 \newcommand{\T}{\ensuremath{{\cal T}}}
+\newcommand{\X}{\ensuremath{{\cal X}}}
 \newcommand{\CAT}{\ensuremath{\mbox{CAT}}}
 \newcommand{\LEX}{\ensuremath{\mbox{LEX}}}
 
@@ -163,8 +167,8 @@ of \(\D\in\CAT\) such that \((\C/\D)\in\CAT\) or \((\C\backslash \D)\in\CAT\)). 
     \begin{array}{lcl}
     \|\C\|_1 &:=& \displaystyle\sum_{(w{:}\C)\in \LEX}\  1\\
     \noalign{\medskip}
-    \|\C\|_n &:=& \displaystyle\sum_{\C/\D\in\CAT}\  \|(\C/\D)\ \D\|_n +
-    \sum_{\C\backslash\D\in\CAT}\ \| \D\ (\C\backslash \D)\|_n\qquad\mbox{for $n>1$}
+    \|\C\|_n &:=& \displaystyle\sum_{(\C/\D),\D\in\CAT}\  \|(\C/\D)\ \D\|_n +
+    \sum_{(\C\backslash\D),\D\in\CAT}\ \| \D\ (\C\backslash \D)\|_n\qquad\mbox{for $n>1$}
     \end{array}
 \]
 where
@@ -188,6 +192,142 @@ where either $\C_1 = (\C/\D)$ and $\C_2 = \D$ or else \(\C_1=\D\) and \(\C_2= \C
   \]
   Then randomly generate a $k$-word phrase of category \(\C_1\) and an \((n{-}k)\)-word phrase of category \(\C_2\).
 
+
+\section{Adding Type Raising}
+\label{sect:typeraising}
+
+Type raising is an implicit unary conversion where a phrase of category $\C$ is turned into a phrase of category $\T / (\T \backslash \C)$ (forward type raising) or a phrase of category $\T \backslash (\T / \C)$ (backward type raising), where $\T$ is arbitrary.
+
+Since the $\T$ in type raising is arbitrary, and the process can be repeatedly applied to the same phrase, every phrase in the lexicon immediately belongs to infinitely many different categories. One might worry that in order to count trees whose root category is $S$, we might have to worry about not functor categories mentioned in the lexicon whose result category is $S$, but infinitely many variations, e.g., one category raised seven times applied to another raised three times, etc.  However, the only binary rule we care about is application. if we only consider derivations that are in \emph{normal form} (Hockenmaier and Bisk 2004), there is never any need to apply a type-raised functor to a value; all that would do is turn a forward application (that we could have already done) into a backward application, or vice versa.
+
+So in a normal-form derivation tree, we only need to worry about type-raising arguments in applications, and these arguments are limited by the domain category of the corresponding functors, which will be determined by the categories of the initial lexicon.  That is, when constructing a phrase of category $\C$ by applying a functor $\C/\D$ to an argument, we need to figure out not only how many trees have category $\D$ as their root, but how many other trees could be transformed into category \(\D\) by type lifting. That is,
+if \(\D\) is of the form \(\T / (\T \backslash \X)\) or \(T \backslash (\T / \X)\), then we need to include
+all the trees with root $\X$ in the count of viable arguments.
+
+
+\newcommand{\FA}{\mbox{FA}}
+\newcommand{\RA}{\mbox{RA}}
+\newcommand{\TR}{\mbox{TR}}
+\newcommand{\BX}{\mbox{BX}}
+\newcommand{\WDS}{\mbox{WDS}}
+
+We keep the following definitions unchanged:
+
+\[
+    \begin{array}{lcl}
+    \|(\C/\D)\ \D\|_n &:=& \displaystyle\sum_{i=1}^{n-1}\ \|\C/\D\|_i\times\|\D\|_{n-i}\\
+    \noalign{\medskip}
+    \|\D\ (\C\backslash \D)\|_n &:=& \displaystyle\sum_{i=1}^{n-1}\ \|\D\|_i\times\|\C\backslash \D\|_{n-i}
+
+\end{array}
+\]
+but now
+\[
+    \begin{array}{lcl}
+    \|\C\|_1 &:=& \WDS(\C) + \TR(\C, 1)\\
+    \noalign{\medskip}
+    \|\C\|_n &:=& TR(\C, n) + \FA(\C,n) + \RA(\C,n) \qquad\mbox{for $n>1$}
+    \end{array}
+\]
+where
+\[
+    \begin{array}{lcl}
+    \WDS(\C) &:=& \displaystyle \sum_{(w{:}\C)\in \LEX}\  1\\
+    \FA(\C,n) &:=& \displaystyle\sum_{(\C/\D),\D\in\CAT}\  \|(\C/\D)\ \D\|_n\\
+    \noalign{\medskip}
+    \RA(\C,n) &:=& \displaystyle\sum_{(\C\backslash\D),\D\in\CAT}\ \| \D\ (\C\backslash \D)\|_n\\
+    \noalign{\medskip}
+    \TR(\C,n) &:=& \begin{cases}
+                        \|X\| \mbox{\ if\ }\C = \A /_i (\B \backslash_j \X) \mbox{\ with\ } j \preceq i \mbox{\ and\ } \B \preceq \A\\
+                        \|X\| \mbox{\ if\ }\C = \A \backslash_i (\B /_j \X) \mbox{\ with\ } j \preceq i \mbox{\ and\ } \B \preceq \A\\
+                        0\mbox{\ otherwise}\\
+    \end{cases}
+    \end{array}
+\]
+
+
+Suppose we want to create a random phrase of category $\C$ with $n$ words.
+If $n = 1$, we pick a random word from $LEX$ of category $\C$ with probability \( \WDS(\C) / \|\C\|_1\) and otherwise [if $C$ can result from type-raising a category $\C'$ we recursively pick a word from category $\C'$.
+
+Otherwise, we apply type-raising (in reverse) with probability
+\(\TR(\C,n) / \|\C\|_n\) in which case we recurse by picking a phrase from the smaller category before type raising. (This probability is only non-zero if $\C$ can result from type raising.) Otherwise we proceed as before, picking
+categories \(\C_1,\C_2\in\CAT\) with probability
+\[
+\frac{\|\C_1\ \C_2\|_n}{\|\C\|_n}
+\]
+where either $\C_1 = (\C/\D)$ and $\C_2 = \D$ or else \(\C_1=\D\) and \(\C_2= \C\backslash\D\). Then pick a split value $k\in 1..(n-1)$ with probability
+\[
+    \frac{\|\C_1\|_k\times\|\C_2\|_{n{-}k}}{\|\C_1\ \C_2\|_n}
+  \]
+  Then randomly generate a $k$-word phrase of category \(\C_1\) and an \((n{-}k)\)-word phrase of category \(\C_2\).
+
+\section{Required-Subtree Distributions}
+
+When generating random sentences from the CCG grammar, it often seems useful to focus on attention on derivations that include a subtree of a particular form, e.g.,
+
+\begin{enumerate}
+    \item The derivation should contain a specific word $w$.
+    \item The derivation should contain a subtree of specified category $\X$.
+    \item The derivation should include a use of a particular CCG rule such as backwards crossed composition.
+    \item The derivation should include a subphrase where the word $w : (\A\backslash \B)/\C$ with some phrase of some category $\C/\D$ to produce a phrase of category $(\A\backslash \B)/_\diamond\D$.
+    \item The derivation should include a subphrase where the word $w : (\A\backslash \B)/\C$ is applied to a $\C$ and then backwards composed with a phrase of category $\B\backslash_{\diamond}\D$ to produce a phrase of category $\A\backslash_{\diamond}\D$.\footnote{These last two examples might be useful in investigating whether the slashes in the word $w$ can reasonably marked with the $\diamond$ (composition) mode.}
+\end{enumerate}
+
+For each case, we can define $\Delta$ to be the distribution of required subtrees, e.g.,
+
+\begin{enumerate}
+    \item \(\Delta\) is just the single tree containing the word $w$;
+    \item \(\Delta\) is the collection of trees with root category $\X$;
+    \item \(\Delta\) is the collection of trees of type $\A/\C$ with immediate subtrees $\B/\C$ and \(\A\backslash\B\).
+    \item \(\Delta\) is the collection of trees whose root has category \((\A\backslash \B)/_\diamond\D\) for some $\D$ and whose immediate subtrees are $w$ and some tree \(\C/\D\).
+    \item \(\Delta\) is the collection of trees whose root has category \(\A\backslash_{\diamond}\D\) for some $\D$, and whose subtrees are a tree of category $B\backslash\D$ and the application of $w$ to a tree of category $\C$.
+\end{enumerate}
+
+As usual, to generate a random tree in some distribution $\Delta$, we can do so by examining the formula for counting the number of such trees corresponding to $n$-word phrases.  We write $\Delta(\C,n)$ to be the number of such trees.  In our examples, then,
+
+\begin{enumerate}
+    \item \(\Delta(\X,n)\) is $1$ if $n = 1$ and $w$ has [XXX \ldots or can be converted to!] category $\X$, and is $0$ otherwise.
+    \item \(\Delta(\X,n)\) is $\|\X\|_n$.
+    \item \(\Delta(\X,n)\) is $\BX(\X,n)$. [XXX Not defined! Worry about modes...]
+    \item \(\Delta(\X,n)\) is $0$ unless $\X$ has the form \((\A\backslash \B)/_\diamond\D\) and \(n>1\), in which case it is \(\|\C/_\diamond\D\|_{n-1}\).
+    \item \(\Delta(\X,n)\) is $0$ unless $\X$ has the form \(\A\backslash_{\diamond}\D\) for some $\D$ and $n>2$ in which case it is
+    \[
+       \displaystyle \sum_{i=1}^{n-2}\ \|\B\backslash\D\|_i\times\|\C\|_{n-1-i}
+    \]
+\end{enumerate}
+
+\section{Random Trees with (Random) Required Subtrees}
+
+We extend the algorithm of Section~\ref{sect:typeraising} by first defining
+
+\[
+    \begin{array}{lcl}
+    \|\C^\Delta\|_n &:=& \Delta(\C,n) + TR^\Delta(\C,n) + \FA^\Delta(\C,n) + \RA^\Delta(\C,n)\qquad\mbox{for $n\geq 1$}
+    \end{array}
+\]
+where
+\[
+    \begin{array}{lcl}
+        \FA^\Delta(\C,n) &:=& \displaystyle\sum_{(\C/\D),\D\in\CAT}\  \|{(\C/\D)}^\Delta\ \D\|_n + \sum_{(\C/\D),\D\in\CAT}\  \|(\C/\D)\ \D^\Delta\|_n\\
+        \noalign{\medskip}
+        \RA^\Delta(\C,n) &:=& \displaystyle\sum_{(\C\backslash\D),\D\in\CAT}\ \| \D^\Delta\ (\C\backslash \D)\|_n + \sum_{(\C\backslash\D),\D\in\CAT}\ \| \D\ (\C\backslash \D)^\Delta\|_n\\
+        \noalign{\medskip}
+        \TR^\Delta(\C,n) &:=& \begin{cases}
+                            \|X^\Delta\| \mbox{\ if\ }\C = \A /_i (\B \backslash_j \X) \mbox{\ with\ } j \preceq i \mbox{\ and\ } \B \preceq \A\\
+                            \|X^\Delta\| \mbox{\ if\ }\C = \A \backslash_i (\B /_j \X) \mbox{\ with\ } j \preceq i \mbox{\ and\ } \B \preceq \A\\
+                            0\mbox{\ otherwise}\\
+        \end{cases}\\
+        \|C_1^\Delta\ \C_2\|_n &:=& \displaystyle\sum_{i=1}^{n-1}\ \|\C_1^\Delta\|_i\times\|\C_2\|_{n-i}\\
+    \noalign{\medskip}
+    \|C_1\ \C_2^\Delta\|_n &:=& \displaystyle\sum_{i=1}^{n-1}\ \|\C_1\|_i\times\|\C_2^\Delta\|_{n-i}\\
+\end{array}
+\]
+
+The definition of \(\|\C^\Delta\|_n\) no longer has a separate base case, but since \(\|\C_1^\Delta\ \C_2\|_1 = \|\C_1\ \C_2^\Delta\|_1 = 0\) for all \(\C_1\) and \(\C_2\), we have \(\|\C^\Delta\|_1 = \Delta(\C,1) + TR^\Delta(\C_,n)\).
+
+\bigskip
+
+\textbf{\Large Oops} Is the count for \(\Delta(\C,n)\) already included in \(\Delta(\T/(\T\backslash\C), n)\)? If so, we're double counting.
 
 
 
