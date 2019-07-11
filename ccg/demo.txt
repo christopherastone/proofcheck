@@ -1,7 +1,6 @@
 S :: t
 NP :: e
 
-fido : NP[sg]
+fido : NP
 eats : S \ NP
-sheep: NP[pl]
 cheese : NP
