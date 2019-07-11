@@ -1,6 +1,9 @@
 S :: t
 NP :: e
+X :: e
+Y :: e
+Z :: e
 
 fido : NP
-eats : S \ NP
+eats : (S \ NP) / NP
 cheese : NP

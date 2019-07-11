@@ -7,7 +7,8 @@ import slash
 import sys
 
 DEBUG = False
-MAX_CATEGORIES = 50
+VERBOSE = False
+MAX_CATEGORIES = 300
 
 
 class CategoryEnumerator:
@@ -55,10 +56,22 @@ class CategoryEnumerator:
                      for c in worklist[worklist_len:]]))
             self.__categories.add(new)
             self.__category_strings.add(new_str)
-            print(new_str)
+            if VERBOSE:
+                print(new_str)
             if len(self.__categories) > MAX_CATEGORIES:
                 print("...etc...")
                 break
+
+    def print_inhabited(self):
+        inhabited = list(self.__category_strings)
+
+        def sort_key(s):
+            num_slashes = sum(c == '/' or c == '\\' for c in s)
+            return (num_slashes, len(s), s)
+
+        inhabited.sort(key=sort_key)
+        for s in inhabited:
+            print(s)
 
     def try_apply(self, potential_functor, potential_argument):
         """Consider the given combination of categories to see if
@@ -68,32 +81,64 @@ class CategoryEnumerator:
             sub = potential_argument.sub_unify(potential_functor.dom)
             if sub is not None:
                 functor = potential_functor.subst(sub)
-                # argument = potential_argument.subst(sub)
+                argument = potential_argument.subst(sub)
                 # direction = functor.slash.dir,
-                lhs = functor.cod.subst(sub)
+                result = functor.cod.subst(sub)
                 # if functor.slash.dir in [slash.LEFT, slash.UNDIRECTED]:
                 #     self.__graph[functor].append(("functor <", argument, lhs))
                 #     self.__graph[argument].append(("argument <", functor, lhs))
                 # if functor.slash.dir in [slash.RIGHT, slash.UNDIRECTED]:
                 #     self.__graph[functor].append(("functor >", argument, lhs))
                 #     self.__graph[argument].append(("argument >", functor, lhs))
-
-                if category.alpha_normalized_string(lhs) in \
+                if category.alpha_normalized_string(result) in \
                         self.__category_strings:
                     if DEBUG:
                         print("      built duplicate: ",
-                              category.alpha_normalized_string(lhs))
+                              category.alpha_normalized_string(result))
 
                     return []
                 else:
-                    return [lhs]
+                    return [result]
             else:
                 return []
         else:
             return []
 
+    def try_compose(self, left_cat, right_cat):
+        """Consider the given combination of categories to see if
+           application might be possible(in the appropriate order,
+           depending on the direction of the functor's slash)"""
+        if isinstance(left_cat, category.SlashCategory) \
+                and isinstance(right_cat, category.SlashCategory):
+            # Try forward composition
+            if (left_cat.slash <= slash.RCOMPOSE) and \
+                    (right_cat.slash <= slash.RCOMPOSE):
+                # shape is right. Do they match up?
+                sub = right_cat.cod.sub_unify(left_cat.dom)
+                if sub is not None:
+                    result = category.SlashCategory(
+                        left_cat.cod.subst(sub),
+                        right_cat.slash,
+                        right_cat.dom.subst(sub))
+                    return [result]
+
+            # Try backward composition
+            # Try forward composition
+            if (left_cat.slash <= slash.LCOMPOSE) and \
+                    (right_cat.slash <= slash.LCOMPOSE):
+                # shape is right. Do they match up?
+                sub = left_cat.cod.sub_unify(right_cat.dom)
+                if sub is not None:
+                    result = category.SlashCategory(
+                        right_cat.cod.subst(sub),
+                        left_cat.slash,
+                        left_cat.dom.subst(sub))
+                    return [result]
+
+        return []
+
     def try_rules(self, left, right):
-        return self.try_apply(left, right)
+        return self.try_apply(left, right) + self.try_compose(left, right)
 
     def typeraise(self, cat):
         t = category.CategoryMetavar("T")
@@ -136,6 +181,8 @@ class CategoryEnumerator:
 
 def test_lexicon(filename):
     ccgrammar = CategoryEnumerator(filename)
+    print("\n\nINHABITED CATEGORIES\n")
+    ccgrammar.print_inhabited()
 
 
 if __name__ == '__main__':
