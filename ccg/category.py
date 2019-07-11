@@ -186,7 +186,7 @@ class SlashCategory:
                f'{self.__dom!r}'
 
     def __str__(self, mv_to_string=None):
-        answer = f'{self.cod.with_parens(mv_to_string)}' \
+        answer = f'{self.cod.__str__(mv_to_string)}' \
                  f'{self.slash}' \
                  f'{self.dom.with_parens(mv_to_string)}'
         if len(answer) > 35 and mv_to_string is None:

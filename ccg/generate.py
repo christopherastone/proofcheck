@@ -6,16 +6,19 @@ import random
 import slash
 import sys
 
-DEBUG = False
-VERBOSE = False
-MAX_CATEGORIES = 300
+DEBUG = True
+VERBOSE = True
+MAX_CATEGORIES_GEN = 30
+MAX_CATEGORIES_SHOW = 20
+SKIP_NONNORMAL = True
 
 
 class CategoryEnumerator:
     def __init__(self, filename):
         lexicon_data = open(filename).read().splitlines()
         lexicon = catparser.do_parses(lexicon_data)[0]
-        all_cats = set(cat for infos in lexicon.values() for cat, _ in infos)
+        self.__original_cats = set(
+            cat for infos in lexicon.values() for cat, _ in infos)
 
         # XX XXX: For now, assume there are no singletons!
         # self.__singletons = set()
@@ -24,87 +27,140 @@ class CategoryEnumerator:
         # for word in self.__singletons:
         #    self.__rules.append(Rule(category.SingletonCategory(word), [word]))
 
-        worklist = list(all_cats)
-        worklist.sort(key=lambda x: (len(str(x))))
+        worklist = [(cat, 'LEX') for cat in self.__original_cats]
+        worklist.sort(key=lambda x: (len(str(x[0]))))
 
-        self.__graph = collections.defaultdict(list)
-        self.__categories = set()
-        self.__category_strings = set()
+        self.__graph = collections.defaultdict(set)
+
+        # map from category to creating rules
+        self.__categories = collections.defaultdict(set)
+
+        # set of (category string, rule) pairs
+        #   kept for improved redundency checks
+        self.__redundant = set()
         while worklist:
-            new = worklist.pop(0).refresh()
-            if DEBUG:
-                print(f'\n  considering {new}')
+            new, new_rule = worklist.pop(0)
+            new = new.refresh()
             new_str = category.alpha_normalized_string(new)
-            if new_str in self.__category_strings:
+            if (new_str, new_rule) in self.__redundant:
                 if DEBUG:
-                    print(f"    it's a duplicate")
+                    print(f"    {new_str} is a duplicate for {new_rule}")
                 continue
-            for old in self.__categories:
+            self.__categories[new].add(new_rule)
+            self.__redundant.add((new_str, new_rule))
+            if VERBOSE:
+                print(new_str, " ", new_rule)
+            for old, old_rules in self.__categories.items():
                 worklist_len = len(worklist)
-                worklist += self.try_rules(old, new)
-                worklist += self.try_rules(new, old)
+                if old != new:
+                    worklist += self.try_rules(old, old_rules, new, [new_rule])
+                    worklist += self.try_rules(new, [new_rule], old, old_rules)
+                else:
+                    new2 = new.refresh()
+                    worklist += self.try_rules(old,
+                                               old_rules, new2, [new_rule])
+
                 if len(worklist) != worklist_len:
                     if DEBUG:
                         print(f'    vs. {old}')
-                        print("      adding: ", ", ".join([category.alpha_normalized_string(c)
-                                                           for c in worklist[worklist_len:]]))
+                        print("      adding: ", ", ".join([category.alpha_normalized_string(c) + " " + r
+                                                           for c, r in worklist[worklist_len:]]))
             worklist_len = len(worklist)
             worklist += self.typeraise(new)
             if DEBUG:
                 print("  adding: ", ", ".join(
-                    [category.alpha_normalized_string(c)
-                     for c in worklist[worklist_len:]]))
-            self.__categories.add(new)
-            self.__category_strings.add(new_str)
-            if VERBOSE:
-                print(new_str)
-            if len(self.__categories) > MAX_CATEGORIES:
+                    [category.alpha_normalized_string(c) + " " + r
+                     for c, r in worklist[worklist_len:]]))
+
+            if len(self.__categories) > MAX_CATEGORIES_GEN:
                 print("...etc...")
+                for w, r in worklist:
+                    self.__categories[w].add(r)
                 break
 
     def print_inhabited(self):
-        inhabited = list(self.__category_strings)
+        if (MAX_CATEGORIES_SHOW == 0):
+            return
+
+        print("\n\nINHABITED CATEGORIES\n")
+
+        inhabited = [(category.alpha_normalized_string(c), ", ".join(rs))
+                     for c, rs in self.__categories.items()][:MAX_CATEGORIES_SHOW]
 
         def sort_key(s):
-            num_slashes = sum(c == '/' or c == '\\' for c in s)
-            return (num_slashes, len(s), s)
+            num_slashes = sum(c == '/' or c == '\\' for c in s[0])
+            return (num_slashes, len(s[0]), s)
 
         inhabited.sort(key=sort_key)
-        for s in inhabited:
-            print(s)
+        for s, rule in inhabited:
+            print(s, "\t", rule)
+        print(len(inhabited), "/", len(self.__categories))
 
-    def try_apply(self, potential_functor, potential_argument):
+    def try_apply(self, left_cat, left_rules, right_cat, right_rules):
         """Consider the given combination of categories to see if
            application might be possible(in the appropriate order,
            depending on the direction of the functor's slash)"""
-        if isinstance(potential_functor, category.SlashCategory):
-            sub = potential_argument.sub_unify(potential_functor.dom)
+        assert(left_rules)
+        if isinstance(left_cat, category.SlashCategory) and \
+                left_cat.slash <= slash.RAPPLY:
+            # Possible instance of >
+            if SKIP_NONNORMAL and set(left_rules) <= {'>T', '>B'}:
+                return []
+            sub = right_cat.sub_unify(left_cat.dom)
             if sub is not None:
-                functor = potential_functor.subst(sub)
-                argument = potential_argument.subst(sub)
-                # direction = functor.slash.dir,
+                functor = left_cat.subst(sub)
+                argument = right_cat.subst(sub)
                 result = functor.cod.subst(sub)
-                # if functor.slash.dir in [slash.LEFT, slash.UNDIRECTED]:
-                #     self.__graph[functor].append(("functor <", argument, lhs))
-                #     self.__graph[argument].append(("argument <", functor, lhs))
-                # if functor.slash.dir in [slash.RIGHT, slash.UNDIRECTED]:
-                #     self.__graph[functor].append(("functor >", argument, lhs))
-                #     self.__graph[argument].append(("argument >", functor, lhs))
-                if category.alpha_normalized_string(result) in \
-                        self.__category_strings:
+                rule = '>'
+                functor_s = category.alpha_normalized_string(functor)
+                argument_s = category.alpha_normalized_string(argument)
+                result_s = category.alpha_normalized_string(result)
+                if DEBUG:
+                    print(f"    DEBUG trying {left_cat} {right_cat}")
+                    print(f"          {functor_s} {argument_s} {rule}")
+                    print(f"          {left_rules} {right_rules}")
+                self.__graph[result_s].update([functor_s, argument_s])
+                if (result_s, rule) not in \
+                        self.__redundant:
+                    return [(result, rule)]
+                else:
                     if DEBUG:
                         print("      built duplicate: ",
                               category.alpha_normalized_string(result))
 
+        if isinstance(right_cat, category.SlashCategory) and \
+                right_cat.slash <= slash.LAPPLY:
+            # possible instance of <
+            if SKIP_NONNORMAL and set(right_rules) <= {'<T', '<B'}:
+                return []
+            sub = left_cat.sub_unify(right_cat.dom)
+            if sub is not None:
+                functor = right_cat.subst(sub)
+                functor_s = category.alpha_normalized_string(functor)
+                argument_s = \
+                    category.alpha_normalized_string(left_cat.subst(sub))
+                result = functor.cod.subst(sub)
+                result_s = category.alpha_normalized_string(result)
+                rule = '<'
+                if DEBUG:
+                    print(f"    DEBUG trying {left_cat} {right_cat} >")
+                    print(f"          {argument_s} {functor_s}")
+                    print(f"          {left_rules} {right_rules}")
+
+                self.__graph[result_s].update([functor_s, argument_s])
+                if (result_s, rule) in \
+                        self.__redundant:
+                    if DEBUG:
+                        print("      built duplicate: ",
+                              result_s, rule)
+
                     return []
                 else:
-                    return [result]
-            else:
-                return []
-        else:
-            return []
+                    return [(result, rule)]
 
-    def try_compose(self, left_cat, right_cat):
+        return []
+
+    def try_compose(self, left_cat, left_rules, right_cat, right_rules):
         """Consider the given combination of categories to see if
            application might be possible(in the appropriate order,
            depending on the direction of the functor's slash)"""
@@ -116,47 +172,105 @@ class CategoryEnumerator:
                 # shape is right. Do they match up?
                 sub = right_cat.cod.sub_unify(left_cat.dom)
                 if sub is not None:
-                    result = category.SlashCategory(
-                        left_cat.cod.subst(sub),
+                    primary = left_cat.subst(sub)
+                    secondary = right_cat.subst(sub)
+                    composition = category.SlashCategory(
+                        primary.cod,
                         right_cat.slash,
-                        right_cat.dom.subst(sub))
-                    return [result]
+                        secondary.dom)
+                    primary_s = \
+                        category.alpha_normalized_string(primary)
+                    secondary_s = \
+                        category.alpha_normalized_string(secondary)
+                    composition_s = \
+                        category.alpha_normalized_string(composition)
+                    rule = ">B"
+
+                    if DEBUG:
+                        print(f"    DEBUG trying >B")
+                        print(f"          {left_cat} {right_cat}")
+                        print(
+                            f"          {primary_s} {secondary_s}")
+                        print(f"          {composition_s}")
+
+                    self.__graph[composition_s].update([
+                        primary_s, secondary_s])
+                    if (composition_s, rule) in self.__redundant:
+                        if DEBUG:
+                            print("      built duplicate: ",
+                                  composition_s, rule)
+                        return []
+                    else:
+
+                        return [(composition, rule)]
 
             # Try backward composition
-            # Try forward composition
             if (left_cat.slash <= slash.LCOMPOSE) and \
                     (right_cat.slash <= slash.LCOMPOSE):
                 # shape is right. Do they match up?
                 sub = left_cat.cod.sub_unify(right_cat.dom)
                 if sub is not None:
-                    result = category.SlashCategory(
-                        right_cat.cod.subst(sub),
-                        left_cat.slash,
-                        left_cat.dom.subst(sub))
-                    return [result]
+                    secondary = left_cat.subst(sub)
+                    primary = right_cat.subst(sub)
+                    composition = category.SlashCategory(
+                        primary.cod,
+                        right_cat.slash,
+                        secondary.dom)
+                    primary_s = \
+                        category.alpha_normalized_string(primary)
+                    secondary_s = \
+                        category.alpha_normalized_string(secondary)
+                    composition_s = \
+                        category.alpha_normalized_string(composition)
+                    rule = '<B'
+
+                    self.__graph[composition_s].update([
+                        primary_s, secondary_s])
+                    if (composition_s, rule) in self.__redundant:
+                        if DEBUG:
+                            print("      built duplicate: ",
+                                  composition_s, rule)
+                        return []
+                    else:
+                        return [(primary, rule)]
 
         return []
 
-    def try_rules(self, left, right):
-        return self.try_apply(left, right) + self.try_compose(left, right)
+    def try_rules(self, left, left_rules, right, right_rules):
+        return (self.try_apply(left, left_rules, right, right_rules) + self.try_compose(left, left_rules, right, right_rules))
 
     def typeraise(self, cat):
         t = category.CategoryMetavar("T")
-        return [category.SlashCategory(t,
-                                       slash.LSLASH,
-                                       category.SlashCategory(t,
-                                                              slash.RSLASH,
-                                                              cat)),
-                category.SlashCategory(t,
-                                       slash.RSLASH,
-                                       category.SlashCategory(t,
-                                                              slash.LSLASH,
-                                                              cat))]
+        fwd = category.SlashCategory(
+            t, slash.RSLASH, category.SlashCategory(
+                t, slash.LSLASH, cat))
+        back = category.SlashCategory(
+            t, slash.LSLASH, category.SlashCategory(
+                t, slash.RSLASH, cat))
+        fwd_s = category.alpha_normalized_string(fwd)
+        back_s = category.alpha_normalized_string(back)
+
+        return [(fwd, '>T'), (back, '<T')]
 
     def print_graph(self):
-        for start in self.__sorted_categories:
-            for label, other, stop in self.__graph[start]:
-                print(f'{start} -> {stop} by {label} with {other}')
+        for start, ends in self.__graph.items():
+            for end in ends:
+                print(f'{start} -> {end}')
+
+    def bfs(self):
+        print("\n\nUseful (reachable) inhabited categories from S\n")
+
+        visited = set()
+        queue = ['S']
+
+        while queue:
+            next = queue.pop(0)
+            if next in visited:
+                continue
+
+            print(next)
+            visited.add(next)
+            queue += list(self.__graph[next])
 
     def find_shortest_paths(self):
         self.__shortest_path_dist = collections.defaultdict(lambda: math.inf)
@@ -181,8 +295,10 @@ class CategoryEnumerator:
 
 def test_lexicon(filename):
     ccgrammar = CategoryEnumerator(filename)
-    print("\n\nINHABITED CATEGORIES\n")
     ccgrammar.print_inhabited()
+
+#    ccgrammar.print_graph()
+    ccgrammar.bfs()
 
 
 if __name__ == '__main__':
