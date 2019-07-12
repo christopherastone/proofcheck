@@ -1,18 +1,22 @@
 import catparser
 import category
 import collections
+import functools
+import heapq
 import math
 import random
 import slash
 import sys
 
 DEBUG = False
-VERBOSE = False
+VERBOSE = True
 MAX_CATEGORIES_GEN = 200
 MAX_CATEGORIES_SHOW = 50
 SKIP_NONNORMAL = True
 
-# XXX BUG: Why isn't S/NP showing up in the output list?
+
+def count_slashes(s):
+    return sum(c == '/' or c == '\\' for c in s)
 
 
 class CategoryEnumerator:
@@ -29,8 +33,33 @@ class CategoryEnumerator:
         # for word in self.__singletons:
         #    self.__rules.append(Rule(category.SingletonCategory(word), [word]))
 
-        worklist = [(cat, 'LEX') for cat in self.__original_cats]
-        worklist.sort(key=lambda x: (len(str(x[0])), str(x[0])))
+        @functools.total_ordering
+        class HeapItem:
+            def __init__(self, cat, rule):
+                self.data = (cat, rule)
+                cat_s = category.alpha_normalized_string(cat)
+                self.key = (count_slashes(cat_s), len(cat_s), cat_s, rule)
+
+            def __eq__(self, other):
+                return (isinstance(other, HeapItem) and
+                        self.key == other.key)
+
+            def __lt__(self, other):
+                return (isinstance(other, HeapItem) and
+                        self.key < other.key)
+
+            def __str__(self):
+                return f'{self.key[3]}'
+
+        worklist = []  # empty heap!
+
+        def add_to_worklist(cat_rule_list):
+            nonlocal worklist
+            for cat, rule in cat_rule_list:
+                heapq.heappush(worklist, HeapItem(cat, rule))
+
+        # initialize worklist with lexical itmes
+        add_to_worklist([(cat, 'LEX') for cat in self.__original_cats])
 
         self.__graph = collections.defaultdict(set)
 
@@ -41,7 +70,7 @@ class CategoryEnumerator:
         #   kept for improved redundency checks
         self.__redundant = set()
         while worklist:
-            new, new_rule = worklist.pop(0)
+            new, new_rule = worklist.pop(0).data
             new = new.refresh()
             new_str = category.alpha_normalized_string(new)
             if (new_str, new_rule) in self.__redundant:
@@ -54,30 +83,33 @@ class CategoryEnumerator:
                 print(new_str, " ", new_rule)
             for old, old_rules in self.__categories.items():
                 #print(f"    {old} {old_rules}")
-                worklist_len = len(worklist)
+                delta = []
                 if not category.alpha_equal(old, new):
-                    worklist += self.try_rules(old, old_rules, new, [new_rule])
-                    worklist += self.try_rules(new, [new_rule], old, old_rules)
+                    delta += self.try_rules(old, old_rules, new, [new_rule])
+                    delta += self.try_rules(new, [new_rule], old, old_rules)
                 else:
                     new2 = new.refresh()
-                    worklist += self.try_rules(old,
-                                               old_rules, new2, [new_rule])
+                    delta += self.try_rules(old,
+                                            old_rules, new2, [new_rule])
 
-                if len(worklist) != worklist_len:
+                if delta:
                     if DEBUG:
                         print(f'    vs. {old}')
                         print("      adding: ", ", ".join([category.alpha_normalized_string(c) + " " + r
-                                                           for c, r in worklist[worklist_len:]]))
-            worklist_len = len(worklist)
-            worklist += self.typeraise(new)
+                                                           for c, r in delta]))
+
+                    add_to_worklist(delta)
+
+            delta = self.typeraise(new)
             if DEBUG:
                 print("  adding: ", ", ".join(
                     [category.alpha_normalized_string(c) + " " + r
-                     for c, r in worklist[worklist_len:]]))
+                     for c, r in delta]))
+            add_to_worklist(delta)
 
             if len(self.__categories) > MAX_CATEGORIES_GEN:
                 print("...etc...")
-                for w, r in worklist:
+                for w, r in [item.data for item in worklist]:
                     self.__categories[w].add(r)
                 break
 
