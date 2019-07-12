@@ -9,8 +9,8 @@ import slash
 import sys
 
 DEBUG = False
-VERBOSE = False
-MAX_CATEGORIES_GEN = 380
+VERBOSE = True
+MAX_CATEGORIES_GEN = 20
 MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
 
@@ -194,9 +194,9 @@ class CategoryEnumerator:
                     print(
                         f"< rule: skipping {left} {left_rules} {right} {right_rules}")
                 return []
-            #print(f'trying to unify {left} <= {right.dom}')
+            # print(f'trying to unify {left} <= {right.dom}')
             sub = left.sub_unify(right.dom)
-            #print(sub is not None)
+            # print(sub is not None)
             if sub is not None:
                 functor = right.subst(sub)
                 functor_s = category.alpha_normalized_string(functor)
@@ -223,7 +223,7 @@ class CategoryEnumerator:
 
         return []
 
-    def try_compose(self, left, left_rules, right, right_rules):
+    def try_forward_compose(self, left, left_rules, right, right_rules):
         """Consider the given combination of categories to see if
            application might be possible(in the appropriate order,
            depending on the direction of the functor's slash)"""
@@ -242,7 +242,7 @@ class CategoryEnumerator:
                     secondary = right.subst(sub)
                     composition = category.SlashCategory(
                         primary.cod,
-                        right.slash,
+                        secondary.slash,
                         secondary.dom)
                     primary_s = \
                         category.alpha_normalized_string(primary)
@@ -267,38 +267,85 @@ class CategoryEnumerator:
                                   composition_s, rule)
                         return []
                     else:
-
                         return [(composition, rule)]
+        return []
 
+    def try_backward_compose(self, left, left_rules, right, right_rules):
+        """Consider the given combination of categories to see if
+           application might be possible(in the appropriate order,
+           depending on the direction of the functor's slash)"""
+        if isinstance(left, category.SlashCategory) \
+                and isinstance(right, category.SlashCategory):
             # Try backward composition
             if (left.slash <= slash.LCOMPOSE) and \
                     (right.slash <= slash.LCOMPOSE):
                 # shape is right. Do they match up?
                 sub = left.cod.sub_unify(right.dom)
-                if sub is not None:
-                    secondary = left.subst(sub)
-                    primary = right.subst(sub)
-                    composition = category.SlashCategory(
-                        primary.cod,
-                        right.slash,
-                        secondary.dom)
-                    primary_s = \
-                        category.alpha_normalized_string(primary)
-                    secondary_s = \
-                        category.alpha_normalized_string(secondary)
-                    composition_s = \
-                        category.alpha_normalized_string(composition)
-                    rule = '<B'
+                if sub is None:
+                    return []
 
-                    self.__graph[composition_s].update([
-                        primary_s, secondary_s])
-                    if (composition_s, rule) in self.__redundant:
-                        if DEBUG:
-                            print("      built duplicate: ",
-                                  composition_s, rule)
-                        return []
-                    else:
-                        return [(composition, rule)]
+                primary = right.subst(sub)
+                secondary = left.subst(sub)
+                composition = category.SlashCategory(
+                    primary.cod,
+                    secondary.slash,
+                    secondary.dom)
+                primary_s = category.alpha_normalized_string(primary)
+                secondary_s = category.alpha_normalized_string(secondary)
+                composition_s = category.alpha_normalized_string(composition)
+                rule = '<B'
+
+                self.__graph[composition_s].update([primary_s, secondary_s])
+                if (composition_s, rule) in self.__redundant:
+                    if DEBUG:
+                        print("      built duplicate: ",
+                              composition_s, rule)
+                    return []
+                else:
+                    return [(composition, rule)]
+
+        return []
+
+    def try_backwards_cross_compose(self, left, left_rules, right, right_rules):
+        if (isinstance(left, category.SlashCategory) and
+                isinstance(right, category.SlashCategory) and
+                left.slash <= slash.RCROSS and
+                right.slash <= slash.LCROSS):
+
+            # H&B Stipulation p. 467
+            # See comments for forbidden_combination() in rules.py
+            assert(left_rules)
+            if all(rule.startswith('>T') for rule in left_rules):
+                return []
+
+            # shape is right. Do they match up?
+            sub = left.cod.sub_unify(right.dom)
+            if sub is None:
+                return []
+
+            primary = right.subst(sub)
+            secondary = left.subst(sub)
+            composition = category.SlashCategory(
+                primary.cod,
+                secondary.slash,
+                secondary.dom)
+            primary_s = category.alpha_normalized_string(primary)
+            secondary_s = category.alpha_normalized_string(secondary)
+            composition_s = category.alpha_normalized_string(composition)
+            rule = '<xB'
+
+            self.__graph[composition_s].update([primary_s, secondary_s])
+            if (composition_s, rule) in self.__redundant:
+                if DEBUG:
+                    print("      built duplicate: ",
+                          composition_s, rule)
+                return []
+            else:
+                # print("aha: <Bx applies")
+                # print(f"  {left} {left_rules} {right} {right_rules}")
+                # print(f"  {secondary} {left_rules} {primary} {right_rules}")
+                # print(f"  {composition}")
+                return [(composition, rule)]
 
         return []
 
@@ -348,8 +395,10 @@ class CategoryEnumerator:
     def try_rules(self, left, left_rules, right, right_rules):
         return (self.try_forward_apply(left, left_rules, right, right_rules) +
                 self.try_backward_apply(left, left_rules, right, right_rules) +
-                self.try_compose(left, left_rules, right, right_rules) +
-                self.try_compose_2(left, left_rules, right, right_rules))
+                self.try_forward_compose(left, left_rules, right, right_rules) +
+                self.try_backward_compose(left, left_rules, right, right_rules) +
+                self.try_compose_2(left, left_rules, right, right_rules) +
+                self.try_backwards_cross_compose(left, left_rules, right, right_rules))
 
     def typeraise(self, cat):
         t = category.CategoryMetavar("T")
