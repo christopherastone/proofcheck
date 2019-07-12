@@ -69,8 +69,9 @@ class CategoryEnumerator:
         # set of (category string, rule) pairs
         #   kept for improved redundency checks
         self.__redundant = set()
+        num_heappops = 0
         while worklist:
-            new, new_rule = worklist.pop(0).data
+            new, new_rule = heapq.heappop(worklist).data
             new = new.refresh()
             new_str = category.alpha_normalized_string(new)
             if (new_str, new_rule) in self.__redundant:
@@ -80,9 +81,10 @@ class CategoryEnumerator:
             self.__categories[new].add(new_rule)
             self.__redundant.add((new_str, new_rule))
             if VERBOSE:
-                print(new_str, " ", new_rule)
+                num_heappops += 1
+                print(f"{new_str} {new_rule} ({num_heappops})")
             for old, old_rules in self.__categories.items():
-                #print(f"    {old} {old_rules}")
+                # print(f"    {old} {old_rules}")
                 delta = []
                 if not category.alpha_equal(old, new):
                     delta += self.try_rules(old, old_rules, new, [new_rule])

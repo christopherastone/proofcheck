@@ -305,9 +305,6 @@ class CategoryMetavar:
         else:
             return self
 
-    def __hash__(self):
-        return id(self)
-
     def refresh(self, mv_map=None):
         if mv_map is None:
             mv_map = {}
@@ -318,11 +315,6 @@ class CategoryMetavar:
             answer = CategoryMetavar(self.hint)
             mv_map[key] = answer
             return answer
-
-        return SlashCategory(
-            self.cod.refresh(mv_map),
-            self.slash,
-            self.dom.refresh(mv_map))
 
 
 ############################
