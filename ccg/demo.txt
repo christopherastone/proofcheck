@@ -6,7 +6,7 @@ Z :: e
 PP :: e -> e
 
 fido : NP
-eats : (S \ NP) / NP
+#eats : (S \ NP) / NP
 cheese : NP
 might: (S \ NP) / (S \ NP)
 give: ((S \ NP) / PP) / NP

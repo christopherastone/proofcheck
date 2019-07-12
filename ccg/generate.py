@@ -6,11 +6,13 @@ import random
 import slash
 import sys
 
-DEBUG = True
-VERBOSE = True
-MAX_CATEGORIES_GEN = 30
-MAX_CATEGORIES_SHOW = 20
+DEBUG = False
+VERBOSE = False
+MAX_CATEGORIES_GEN = 200
+MAX_CATEGORIES_SHOW = 50
 SKIP_NONNORMAL = True
+
+# XXX BUG: Why isn't S/NP showing up in the output list?
 
 
 class CategoryEnumerator:
@@ -28,7 +30,7 @@ class CategoryEnumerator:
         #    self.__rules.append(Rule(category.SingletonCategory(word), [word]))
 
         worklist = [(cat, 'LEX') for cat in self.__original_cats]
-        worklist.sort(key=lambda x: (len(str(x[0]))))
+        worklist.sort(key=lambda x: (len(str(x[0])), str(x[0])))
 
         self.__graph = collections.defaultdict(set)
 
@@ -51,8 +53,9 @@ class CategoryEnumerator:
             if VERBOSE:
                 print(new_str, " ", new_rule)
             for old, old_rules in self.__categories.items():
+                #print(f"    {old} {old_rules}")
                 worklist_len = len(worklist)
-                if old != new:
+                if not category.alpha_equal(old, new):
                     worklist += self.try_rules(old, old_rules, new, [new_rule])
                     worklist += self.try_rules(new, [new_rule], old, old_rules)
                 else:
@@ -143,7 +146,7 @@ class CategoryEnumerator:
                 result_s = category.alpha_normalized_string(result)
                 rule = '<'
                 if DEBUG:
-                    print(f"    DEBUG trying {left_cat} {right_cat} >")
+                    print(f"    DEBUG trying {left_cat} {right_cat} <")
                     print(f"          {argument_s} {functor_s}")
                     print(f"          {left_rules} {right_rules}")
 
@@ -232,7 +235,7 @@ class CategoryEnumerator:
                                   composition_s, rule)
                         return []
                     else:
-                        return [(primary, rule)]
+                        return [(composition, rule)]
 
         return []
 
@@ -249,6 +252,9 @@ class CategoryEnumerator:
                 t, slash.RSLASH, cat))
         fwd_s = category.alpha_normalized_string(fwd)
         back_s = category.alpha_normalized_string(back)
+        cat_s = category.alpha_normalized_string(cat)
+        self.__graph[fwd_s].add(cat_s)
+        self.__graph[back_s].add(cat_s)
 
         return [(fwd, '>T'), (back, '<T')]
 
@@ -259,6 +265,9 @@ class CategoryEnumerator:
 
     def bfs(self):
         print("\n\nUseful (reachable) inhabited categories from S\n")
+
+        print(f'for constructing S   : {self.__graph["S"]}')
+        print(f'for constructing S/NP: {self.__graph["S/NP"]}')
 
         visited = set()
         queue = ['S']
