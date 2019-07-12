@@ -6,8 +6,10 @@ Z :: e
 PP :: e -> e
 
 fido : NP
-#eats : (S \ NP) / NP
-cheese : NP
-might: (S \ NP) / (S \ NP)
-give: ((S \ NP) / PP) / NP
-to_a_policeman : PP
+eats : (S \ NP) / NP
+#cheese : NP
+#might: (S \ NP) / (S \ NP)
+#give: ((S \ NP) / PP) / NP
+#to_a_policeman : PP
+#and1 : (NP \* NP) /* NP
+and2 : ((S / NP) \* (S / NP)) /* (S / NP)

@@ -9,9 +9,9 @@ import slash
 import sys
 
 DEBUG = False
-VERBOSE = True
-MAX_CATEGORIES_GEN = 200
-MAX_CATEGORIES_SHOW = 50
+VERBOSE = False
+MAX_CATEGORIES_GEN = 380
+MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
 
 
@@ -21,6 +21,8 @@ def count_slashes(s):
 
 class CategoryEnumerator:
     def __init__(self, filename):
+        global DEBUG
+
         lexicon_data = open(filename).read().splitlines()
         lexicon = catparser.do_parses(lexicon_data)[0]
         self.__original_cats = set(
@@ -74,6 +76,8 @@ class CategoryEnumerator:
             new, new_rule = heapq.heappop(worklist).data
             new = new.refresh()
             new_str = category.alpha_normalized_string(new)
+            # if "/*" in new_str or "\\*" in new_str:
+            #     DEBUG = True
             if (new_str, new_rule) in self.__redundant:
                 if DEBUG:
                     print(f"    {new_str} is a duplicate for {new_rule}")
@@ -87,7 +91,13 @@ class CategoryEnumerator:
                 # print(f"    {old} {old_rules}")
                 delta = []
                 if not category.alpha_equal(old, new):
+                    if DEBUG:
+                        print(
+                            f"trying rule order {old} {old_rules} {new} {new_rule}")
                     delta += self.try_rules(old, old_rules, new, [new_rule])
+                    if DEBUG:
+                        print(
+                            f"trying rule order {new} {new_rule} {old} {old_rules} ")
                     delta += self.try_rules(new, [new_rule], old, old_rules)
                 else:
                     new2 = new.refresh()
@@ -115,6 +125,8 @@ class CategoryEnumerator:
                     self.__categories[w].add(r)
                 break
 
+            # DEBUG = False
+
     def print_inhabited(self):
         if (MAX_CATEGORIES_SHOW == 0):
             return
@@ -133,27 +145,28 @@ class CategoryEnumerator:
             print(s, "\t", rule)
         print(len(inhabited), "/", len(self.__categories))
 
-    def try_apply(self, left_cat, left_rules, right_cat, right_rules):
+    def try_forward_apply(self, left, left_rules, right, right_rules):
         """Consider the given combination of categories to see if
-           application might be possible(in the appropriate order,
-           depending on the direction of the functor's slash)"""
+           forward application is possible"""
         assert(left_rules)
-        if isinstance(left_cat, category.SlashCategory) and \
-                left_cat.slash <= slash.RAPPLY:
+        if isinstance(left, category.SlashCategory) and \
+                left.slash <= slash.RAPPLY:
             # Possible instance of >
-            if SKIP_NONNORMAL and set(left_rules) <= {'>T', '>B'}:
+            if SKIP_NONNORMAL and all(
+                    rule.startswith('>T') or
+                    rule.startswith('>B') for rule in left_rules):
                 return []
-            sub = right_cat.sub_unify(left_cat.dom)
+            sub = right.sub_unify(left.dom)
             if sub is not None:
-                functor = left_cat.subst(sub)
-                argument = right_cat.subst(sub)
+                functor = left.subst(sub)
+                argument = right.subst(sub)
                 result = functor.cod.subst(sub)
                 rule = '>'
                 functor_s = category.alpha_normalized_string(functor)
                 argument_s = category.alpha_normalized_string(argument)
                 result_s = category.alpha_normalized_string(result)
                 if DEBUG:
-                    print(f"    DEBUG trying {left_cat} {right_cat}")
+                    print(f"    DEBUG trying {left} {right}")
                     print(f"          {functor_s} {argument_s} {rule}")
                     print(f"          {left_rules} {right_rules}")
                 self.__graph[result_s].update([functor_s, argument_s])
@@ -165,22 +178,35 @@ class CategoryEnumerator:
                         print("      built duplicate: ",
                               category.alpha_normalized_string(result))
 
-        if isinstance(right_cat, category.SlashCategory) and \
-                right_cat.slash <= slash.LAPPLY:
+        return []
+
+    def try_backward_apply(self, left, left_rules, right, right_rules):
+        """Consider the given combination of categories to see if
+           backward application is possible"""
+        assert(right_rules)
+        if isinstance(right, category.SlashCategory) and \
+                right.slash <= slash.LAPPLY:
             # possible instance of <
-            if SKIP_NONNORMAL and set(right_rules) <= {'<T', '<B'}:
+            if SKIP_NONNORMAL and all(
+                    rule.startswith('<T') or
+                    rule.startswith('<B') for rule in right_rules):
+                if DEBUG:
+                    print(
+                        f"< rule: skipping {left} {left_rules} {right} {right_rules}")
                 return []
-            sub = left_cat.sub_unify(right_cat.dom)
+            #print(f'trying to unify {left} <= {right.dom}')
+            sub = left.sub_unify(right.dom)
+            #print(sub is not None)
             if sub is not None:
-                functor = right_cat.subst(sub)
+                functor = right.subst(sub)
                 functor_s = category.alpha_normalized_string(functor)
                 argument_s = \
-                    category.alpha_normalized_string(left_cat.subst(sub))
+                    category.alpha_normalized_string(left.subst(sub))
                 result = functor.cod.subst(sub)
                 result_s = category.alpha_normalized_string(result)
                 rule = '<'
                 if DEBUG:
-                    print(f"    DEBUG trying {left_cat} {right_cat} <")
+                    print(f"    DEBUG trying {left} {right} <")
                     print(f"          {argument_s} {functor_s}")
                     print(f"          {left_rules} {right_rules}")
 
@@ -197,23 +223,26 @@ class CategoryEnumerator:
 
         return []
 
-    def try_compose(self, left_cat, left_rules, right_cat, right_rules):
+    def try_compose(self, left, left_rules, right, right_rules):
         """Consider the given combination of categories to see if
            application might be possible(in the appropriate order,
            depending on the direction of the functor's slash)"""
-        if isinstance(left_cat, category.SlashCategory) \
-                and isinstance(right_cat, category.SlashCategory):
-            # Try forward composition
-            if (left_cat.slash <= slash.RCOMPOSE) and \
-                    (right_cat.slash <= slash.RCOMPOSE):
+        if isinstance(left, category.SlashCategory) \
+                and isinstance(right, category.SlashCategory):
+            # # Try forward composition
+            if SKIP_NONNORMAL and all(
+                    rule.startswith('>B') for rule in left_rules):
+                return []  # HF NF Constraint 1
+            if (left.slash <= slash.RCOMPOSE) and \
+                    (right.slash <= slash.RCOMPOSE):
                 # shape is right. Do they match up?
-                sub = right_cat.cod.sub_unify(left_cat.dom)
+                sub = right.cod.sub_unify(left.dom)
                 if sub is not None:
-                    primary = left_cat.subst(sub)
-                    secondary = right_cat.subst(sub)
+                    primary = left.subst(sub)
+                    secondary = right.subst(sub)
                     composition = category.SlashCategory(
                         primary.cod,
-                        right_cat.slash,
+                        right.slash,
                         secondary.dom)
                     primary_s = \
                         category.alpha_normalized_string(primary)
@@ -225,7 +254,7 @@ class CategoryEnumerator:
 
                     if DEBUG:
                         print(f"    DEBUG trying >B")
-                        print(f"          {left_cat} {right_cat}")
+                        print(f"          {left} {left_rules} {right}")
                         print(
                             f"          {primary_s} {secondary_s}")
                         print(f"          {composition_s}")
@@ -242,16 +271,16 @@ class CategoryEnumerator:
                         return [(composition, rule)]
 
             # Try backward composition
-            if (left_cat.slash <= slash.LCOMPOSE) and \
-                    (right_cat.slash <= slash.LCOMPOSE):
+            if (left.slash <= slash.LCOMPOSE) and \
+                    (right.slash <= slash.LCOMPOSE):
                 # shape is right. Do they match up?
-                sub = left_cat.cod.sub_unify(right_cat.dom)
+                sub = left.cod.sub_unify(right.dom)
                 if sub is not None:
-                    secondary = left_cat.subst(sub)
-                    primary = right_cat.subst(sub)
+                    secondary = left.subst(sub)
+                    primary = right.subst(sub)
                     composition = category.SlashCategory(
                         primary.cod,
-                        right_cat.slash,
+                        right.slash,
                         secondary.dom)
                     primary_s = \
                         category.alpha_normalized_string(primary)
@@ -273,8 +302,54 @@ class CategoryEnumerator:
 
         return []
 
+    def try_compose_2(self, left, left_rules, right, right_rules):
+        if (isinstance(left, category.SlashCategory) and
+                left.slash <= slash.RCOMPOSE and
+                isinstance(right, category.SlashCategory) and
+                isinstance(right.cod, category.SlashCategory) and
+                right.cod.slash <= slash.RCOMPOSE):
+
+            if SKIP_NONNORMAL and all(
+                    rule == '>B' for rule in left_rules):
+                return []  # HF NF Constraint 2
+
+            sub = right.cod.cod.sub_unify(left.dom)
+            if sub is None:
+                return []
+
+            primary = left.subst(sub)
+            secondary = right.subst(sub)
+            composition = \
+                category.SlashCategory(
+                    category.SlashCategory(
+                        primary.cod,
+                        right.cod.slash,
+                        secondary.cod.dom),
+                    secondary.slash,
+                    secondary.dom)
+
+            primary_s = category.alpha_normalized_string(primary)
+            secondary_s = category.alpha_normalized_string(secondary)
+            composition_s = category.alpha_normalized_string(composition)
+            rule = ">B2"
+
+            self.__graph[composition_s].update([primary_s, secondary_s])
+            if (composition_s, rule) in self.__redundant:
+                if DEBUG:
+                    print("      built duplicate: ",
+                          composition_s, rule)
+                return []
+            else:
+
+                return [(composition, rule)]
+
+        return []
+
     def try_rules(self, left, left_rules, right, right_rules):
-        return (self.try_apply(left, left_rules, right, right_rules) + self.try_compose(left, left_rules, right, right_rules))
+        return (self.try_forward_apply(left, left_rules, right, right_rules) +
+                self.try_backward_apply(left, left_rules, right, right_rules) +
+                self.try_compose(left, left_rules, right, right_rules) +
+                self.try_compose_2(left, left_rules, right, right_rules))
 
     def typeraise(self, cat):
         t = category.CategoryMetavar("T")

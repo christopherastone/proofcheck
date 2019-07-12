@@ -1,0 +1,10 @@
+S :: t
+X :: e
+Y :: e
+Z :: e
+W :: e
+
+a : X/Y
+b : Y/Z
+c : Z/W
+s : S/(X/W)
