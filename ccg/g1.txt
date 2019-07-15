@@ -8,6 +8,7 @@ b : (S/C)\A
 b : (B/C)\A
 b : (S/C)/B\A
 b : ((S/C)/B)\A
+b : ((B/C)/B)\A
 c : C
 
 1. "a b c" S

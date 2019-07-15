@@ -10,14 +10,22 @@ import sys
 
 DEBUG = False
 VERBOSE = True
-MAX_CATEGORIES_GEN = 1000
-MAX_CATEGORIES_SHOW = 50
+MAX_CATEGORIES_GEN = 100
+MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
 DO_TYPERAISE = False
+MAX_COMPOSITION_ORDER = 3
+
+assert(MAX_COMPOSITION_ORDER >= 1)
 
 
 def count_slashes(s):
     return sum(c == '/' or c == '\\' for c in s)
+
+
+def sort_key(s):
+    num_slashes = sum(c == '/' or c == '\\' for c in s)
+    return (num_slashes, len(s[0]), s)
 
 
 class CategoryEnumerator:
@@ -137,9 +145,8 @@ class CategoryEnumerator:
         inhabited = [(category.alpha_normalized_string(c), ", ".join(rs))
                      for c, rs in self.__categories.items()][:MAX_CATEGORIES_SHOW]
 
-        def sort_key(s):
-            num_slashes = sum(c == '/' or c == '\\' for c in s[0])
-            return (num_slashes, len(s[0]), s)
+        def sort_key_2(s):
+            return sort_key(s[0])
 
         inhabited.sort(key=sort_key)
         for s, rule in inhabited:
@@ -224,53 +231,6 @@ class CategoryEnumerator:
 
         return []
 
-    def try_forward_compose(self, left, left_rules, right, right_rules):
-        """Consider the given combination of categories to see if
-           application might be possible(in the appropriate order,
-           depending on the direction of the functor's slash)"""
-        if isinstance(left, category.SlashCategory) \
-                and isinstance(right, category.SlashCategory):
-            # # Try forward composition
-            if SKIP_NONNORMAL and all(
-                    rule.startswith('>B') for rule in left_rules):
-                return []  # HF NF Constraint 1
-            if (left.slash <= slash.RCOMPOSE) and \
-                    (right.slash <= slash.RCOMPOSE):
-                # shape is right. Do they match up?
-                sub = right.cod.sub_unify(left.dom)
-                if sub is not None:
-                    primary = left.subst(sub)
-                    secondary = right.subst(sub)
-                    composition = category.SlashCategory(
-                        primary.cod,
-                        secondary.slash,
-                        secondary.dom)
-                    primary_s = \
-                        category.alpha_normalized_string(primary)
-                    secondary_s = \
-                        category.alpha_normalized_string(secondary)
-                    composition_s = \
-                        category.alpha_normalized_string(composition)
-                    rule = ">B"
-
-                    if DEBUG:
-                        print(f"    DEBUG trying >B")
-                        print(f"          {left} {left_rules} {right}")
-                        print(
-                            f"          {primary_s} {secondary_s}")
-                        print(f"          {composition_s}")
-
-                    self.__graph[composition_s].update([
-                        primary_s, secondary_s])
-                    if (composition_s, rule) in self.__redundant:
-                        if DEBUG:
-                            print("      built duplicate: ",
-                                  composition_s, rule)
-                        return []
-                    else:
-                        return [(composition, rule)]
-        return []
-
     def try_backward_compose(self, left, left_rules, right, right_rules):
         """Consider the given combination of categories to see if
            application might be possible(in the appropriate order,
@@ -350,55 +310,162 @@ class CategoryEnumerator:
 
         return []
 
-    def try_compose_2(self, left, left_rules, right, right_rules):
-        if (isinstance(left, category.SlashCategory) and
-                left.slash <= slash.RCOMPOSE and
-                isinstance(right, category.SlashCategory) and
-                isinstance(right.cod, category.SlashCategory) and
-                right.cod.slash <= slash.RCOMPOSE):
+    def bad_compose(self, lrule, rrule, dir, compose_order):
+        assert(compose_order >= 1)
 
-            if SKIP_NONNORMAL and all(
-                    rule == '>B' for rule in left_rules):
-                return []  # HF NF Constraint 2
-
-            sub = right.cod.cod.sub_unify(left.dom)
-            if sub is None:
-                return []
-
-            primary = left.subst(sub)
-            secondary = right.subst(sub)
-            composition = \
-                category.SlashCategory(
-                    category.SlashCategory(
-                        primary.cod,
-                        right.cod.slash,
-                        secondary.cod.dom),
-                    secondary.slash,
-                    secondary.dom)
-
-            primary_s = category.alpha_normalized_string(primary)
-            secondary_s = category.alpha_normalized_string(secondary)
-            composition_s = category.alpha_normalized_string(composition)
-            rule = ">B2"
-
-            self.__graph[composition_s].update([primary_s, secondary_s])
-            if (composition_s, rule) in self.__redundant:
-                if DEBUG:
-                    print("      built duplicate: ",
-                          composition_s, rule)
-                return []
+        def extract_compose_order(rule, expected_dir=dir):
+            if rule.startswith(expected_dir + 'B'):
+                if len(rule) > 2:
+                    return int(rule[2:])
+                else:
+                    return 1
             else:
+                return None
 
-                return [(composition, rule)]
+        # H&F NF Constraint 1
+        left_order = extract_compose_order(lrule)
+        if (compose_order == 1 and
+            left_order is not None and
+                left_order >= 1):
+            return True
 
-        return []
+        # H&F NF Constraint 2
+        if (left_order is not None and
+                left_order == 1):
+            return True
+
+        # H&F NF Constraint 3
+        right_order = extract_compose_order(rrule)
+        if (right_order is not None and
+            right_order > 1 and
+                compose_order > right_order):
+            return True
+
+        # H&F NF Constraint 4
+        if lrule == '>T':
+            right_order_rev = extract_compose_order(
+                rrule, '>' if dir == '<' else '<')
+            if (right_order_rev is not None and
+                    right_order_rev > compose_order):
+                return True
+
+        return False
+
+    def try_general_forward_compose(self,
+                                    left, left_rules, right, right_rules,
+                                    max_order=1, spine=[]):
+
+        # Were there too many extra arguments?
+        order_of_this_composition = len(spine) + 1
+        if order_of_this_composition > max_order:
+            return []
+
+        # This code doesn't work if one of the sides is an actual
+        # metavariable.
+        assert(not (isinstance(left, category.CategoryMetavar)))
+        assert(not (isinstance(right, category.CategoryMetavar)))
+
+        if not (isinstance(left, category.SlashCategory) and
+                left.slash <= slash.RCOMPOSE and
+                isinstance(right, category.SlashCategory)):
+            # Left side doesn't have a composible right-slash,
+            # or right side doesn't have any slash, so
+            # there's no hope of applying a B rule.
+            return []
+
+        # Note: In the presence of metavariables, it's easy
+        # to see that more than one composition might be legal,
+        # e.g.,  X / T  can compose with  A / B / C
+        #    resulting in   X / C     (>B)
+        #                   X / B / C (>B2)
+        #   (not to mention X  via application a.k.a. >B0)
+        # So we need to check higher-order compositions
+        #  even if a simple >B direct composition would work.
+
+        # Do the recursive checking
+        compositions_found = []
+        if (isinstance(right.cod, category.SlashCategory)):
+            compositions_found += self.try_general_forward_compose(
+                left, left_rules, right.cod, right_rules,
+                max_order, [(right.slash, right.dom)] + spine)
+
+        # H&F NF Constraint 1 and
+        # Note that just because we can't do an order-1 composition
+        # doesn't mean higher-order compositions weren't legal
+        # E.g., if a / T      came from >B1
+        #          b / d / f  came from <
+        # Then a / f via >B1 is forbidden, but a / d / f by >B2 would be ok
+
+        # So even if this composition is forbidden due to normal forms,
+        # we should still return any valid compositions that we discovered
+        # recursively.
+
+        # In theory, the same category could be arrived at in more than
+        # one way. Beacuse of that, we need to check that no possible
+        # ways of deriving the left-hand-side and the right-hand-side
+        # could produce a normal derivation.
+        if SKIP_NONNORMAL:
+            validity_checks = [
+                not(self.bad_compose(lrule, rrule, '>', order_of_this_composition))
+                for lrule in left_rules for rrule in right_rules]
+            # validity_checks has True for any *valid* composition and
+            #   False for any invalid composition. We abort only if
+            #   there were zero valid compositions.
+            if not(any(validity_checks)):
+                return compositions_found
+
+        # OK, let's finally try to do this composition.
+
+        if not (right.slash <= slash.RCOMPOSE):
+            # not a composeable slash on the right
+            return compositions_found
+
+        # two composeable right slashes. Confirm they match up
+        sub = right.cod.sub_unify(left.dom)
+        if sub is None:
+            return compositions_found
+
+        # Put together the final composition
+        # (using un-substituted categories!)
+        composition = \
+            category.SlashCategory(left.cod, right.slash, right.dom)
+        for sl, cat in spine:
+            composition =  \
+                category.SlashCategory(composition, sl, cat)
+
+        primary = left.subst(sub)
+        secondary = right.subst(sub)
+        composition = composition.subst(sub)
+
+        primary_s = category.alpha_normalized_string(primary)
+        secondary_s = category.alpha_normalized_string(secondary)
+        composition_s = category.alpha_normalized_string(composition)
+
+        rule = '>B'
+        if (order_of_this_composition > 1):
+            rule += str(order_of_this_composition)
+
+        if DEBUG:
+            print(f"    DEBUG trying >B" + str(order_of_this_composition))
+            print(f"          {left} {left_rules} {right} {right_rules}")
+            print(f"          {primary_s} {secondary_s}")
+            print(f"          {composition_s}")
+
+        self.__graph[composition_s].update([primary_s, secondary_s])
+        if (composition_s, rule) in self.__redundant:
+            if DEBUG:
+                print("      built duplicate: ",
+                      composition_s, rule)
+            return compositions_found
+        else:
+            return [(composition, rule)] + compositions_found
 
     def try_rules(self, left, left_rules, right, right_rules):
         return (self.try_forward_apply(left, left_rules, right, right_rules) +
                 self.try_backward_apply(left, left_rules, right, right_rules) +
-                self.try_forward_compose(left, left_rules, right, right_rules) +
+                # self.try_forward_compose(left, left_rules, right, right_rules) +
                 self.try_backward_compose(left, left_rules, right, right_rules) +
-                self.try_compose_2(left, left_rules, right, right_rules) +
+                self.try_general_forward_compose(left, left_rules, right, right_rules, MAX_COMPOSITION_ORDER) +
                 self.try_backwards_cross_compose(left, left_rules, right, right_rules))
 
     def typeraise(self, cat):
@@ -438,9 +505,14 @@ class CategoryEnumerator:
             if next in visited:
                 continue
 
-            print(next)
             visited.add(next)
             queue += list(self.__graph[next])
+
+        all_visited = [str(c) for c in visited]
+        all_visited.sort(key=sort_key)
+        print(all_visited)
+        for cat in all_visited:
+            print(cat)
 
     def find_shortest_paths(self):
         self.__shortest_path_dist = collections.defaultdict(lambda: math.inf)
