@@ -10,9 +10,10 @@ import sys
 
 DEBUG = False
 VERBOSE = True
-MAX_CATEGORIES_GEN = 20
-MAX_CATEGORIES_SHOW = 100
+MAX_CATEGORIES_GEN = 1000
+MAX_CATEGORIES_SHOW = 50
 SKIP_NONNORMAL = True
+DO_TYPERAISE = False
 
 
 def count_slashes(s):
@@ -401,6 +402,8 @@ class CategoryEnumerator:
                 self.try_backwards_cross_compose(left, left_rules, right, right_rules))
 
     def typeraise(self, cat):
+        if not DO_TYPERAISE:
+            return []
         t = category.CategoryMetavar("T")
         fwd = category.SlashCategory(
             t, slash.RSLASH, category.SlashCategory(

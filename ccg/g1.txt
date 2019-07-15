@@ -1,0 +1,14 @@
+A :: e
+B :: e
+C :: e
+S :: t
+
+a : A
+b : (S/C)\A
+b : (B/C)\A
+b : (S/C)/B\A
+b : ((S/C)/B)\A
+c : C
+
+1. "a b c" S
+2. "a a b b c c" S

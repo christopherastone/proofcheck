@@ -12,4 +12,7 @@ eats : (S \ NP) / NP
 #give: ((S \ NP) / PP) / NP
 #to_a_policeman : PP
 #and1 : (NP \* NP) /* NP
-and2 : ((S / NP) \* (S / NP)) /* (S / NP)
+#and2 : ((S / NP) \* (S / NP)) /* (S / NP)
+
+#marry : ( S \ NP ) / NP = marry'
+might : ( S \ NP ) / ( S \ NP ) = might'
