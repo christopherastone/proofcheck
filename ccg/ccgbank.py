@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
-# ./make_ccgbank_stats_py.py
-# ./make_ccgbank_stats_py.py data/ccgbank_1_1/data/LEX/CCGbank.00-24.lexicon
+# ./ccgbank.py
+# ./ccgbank.py data/ccgbank_1_1/data/LEX/CCGbank.00-24.lexicon
 
 import catparser
 import collections
@@ -24,10 +24,10 @@ def process_lexicon(filename, MIN_COUNT=50):
                 continue
             cat_dict[cat].append((count, word))
     print(f'done.')
-    summarize(cat_dict)
+    return cat_dict
 
 
-def summarize(cat_dict, NUM_WORDS=5, NUM_CATS=30):
+def summarize(cat_dict, NUM_WORDS=5, NUM_CATS=300):
     cats = sorted(cat_dict.keys(), key=lambda x: len(x))
     print(f'{len(cats)} categories.')
     for cat in cats[:NUM_CATS]:
@@ -45,4 +45,5 @@ if __name__ == '__main__':
         print(f'usage: {sys.argv[0]} <lexicon file>')
         exit(-1)
 
-    process_lexicon(filename)
+    cat_dict = process_lexicon(filename)
+    summarize(cat_dict)

@@ -1,5 +1,6 @@
 import catparser
 import category
+import ccgbank
 import collections
 import functools
 import heapq
@@ -10,7 +11,7 @@ import sys
 
 DEBUG = False
 VERBOSE = True
-MAX_CATEGORIES_GEN = 1000
+MAX_CATEGORIES_GEN = 100
 MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
 MAX_COMPOSITION_ORDER = 3
@@ -19,6 +20,8 @@ DO_TYPERAISE = True
 NO_DOUBLE_TYPERAISE = True
 
 assert(MAX_COMPOSITION_ORDER >= 1)
+
+USE_CCGBANK_LEXICON = True
 
 
 def count_slashes(s):
@@ -34,10 +37,21 @@ class CategoryEnumerator:
     def __init__(self, filename):
         global DEBUG
 
-        lexicon_data = open(filename).read().splitlines()
-        lexicon = catparser.do_parses(lexicon_data)[0]
-        self.__original_cats = set(
-            cat for infos in lexicon.values() for cat, _ in infos)
+        if USE_CCGBANK_LEXICON:
+            cat_dict = ccgbank.process_lexicon(
+                'data/ccgbank_1_1/data/LEX/CCGbank.00-24.lexicon', 500)
+            self.__original_cats = set()
+            for s in cat_dict.keys():
+                cat = catparser.catparser.parse(s)
+                if cat is not None:
+                    self.__original_cats.add(cat)
+                else:
+                    print("oops: ", s)
+        else:
+            lexicon_data = open(filename).read().splitlines()
+            lexicon = catparser.do_parses(lexicon_data)[0]
+            self.__original_cats = set(
+                cat for infos in lexicon.values() for cat, _ in infos)
 
         # XX XXX: For now, assume there are no singletons!
         # self.__singletons = set()
@@ -492,6 +506,7 @@ class CategoryEnumerator:
         fwd_s = category.alpha_normalized_string(fwd)
         back_s = category.alpha_normalized_string(back)
 
+        self.__graph[fwd_s].add(cat_s)
         self.__graph[back_s].add(cat_s)
 
         return [(fwd, '>T'), (back, '<T')]
@@ -523,6 +538,7 @@ class CategoryEnumerator:
         print(all_visited)
         for cat in all_visited:
             print(cat)
+        print(len(all_visited))
 
     def find_shortest_paths(self):
         self.__shortest_path_dist = collections.defaultdict(lambda: math.inf)
