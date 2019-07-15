@@ -10,11 +10,13 @@ import sys
 
 DEBUG = False
 VERBOSE = True
-MAX_CATEGORIES_GEN = 100
+MAX_CATEGORIES_GEN = 1000
 MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
-DO_TYPERAISE = False
 MAX_COMPOSITION_ORDER = 3
+
+DO_TYPERAISE = True
+NO_DOUBLE_TYPERAISE = True
 
 assert(MAX_COMPOSITION_ORDER >= 1)
 
@@ -121,7 +123,7 @@ class CategoryEnumerator:
 
                     add_to_worklist(delta)
 
-            delta = self.typeraise(new)
+            delta = self.typeraise(new, [new_rule])
             if DEBUG:
                 print("  adding: ", ", ".join(
                     [category.alpha_normalized_string(c) + " " + r
@@ -468,20 +470,28 @@ class CategoryEnumerator:
                 self.try_general_forward_compose(left, left_rules, right, right_rules, MAX_COMPOSITION_ORDER) +
                 self.try_backwards_cross_compose(left, left_rules, right, right_rules))
 
-    def typeraise(self, cat):
+    def typeraise(self, cat, rules):
         if not DO_TYPERAISE:
             return []
+
+        if NO_DOUBLE_TYPERAISE and \
+            all(rule.startswith('>T') or
+                rule.startswith('<T') for rule in rules):
+            return []
+
         t = category.CategoryMetavar("T")
+
         fwd = category.SlashCategory(
             t, slash.RSLASH, category.SlashCategory(
                 t, slash.LSLASH, cat))
         back = category.SlashCategory(
             t, slash.LSLASH, category.SlashCategory(
                 t, slash.RSLASH, cat))
+
+        cat_s = category.alpha_normalized_string(cat)
         fwd_s = category.alpha_normalized_string(fwd)
         back_s = category.alpha_normalized_string(back)
-        cat_s = category.alpha_normalized_string(cat)
-        self.__graph[fwd_s].add(cat_s)
+
         self.__graph[back_s].add(cat_s)
 
         return [(fwd, '>T'), (back, '<T')]
