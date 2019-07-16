@@ -11,8 +11,8 @@ import slash
 import sys
 
 DEBUG = False
-VERBOSE = False
-MAX_CATEGORIES_GEN = 500
+VERBOSE = True
+MAX_CATEGORIES_GEN = 3000
 MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
 MAX_COMPOSITION_ORDER = 3
@@ -69,7 +69,7 @@ class CategoryEnumerator:
             def __init__(self, cat, rule):
                 self.data = (cat, rule)
                 cat_s = category.alpha_normalized_string(cat)
-                self.key = (sort_key(cat_s), rule)
+                self.key = (rule != 'LEX', sort_key(cat_s), rule)
 
             def __eq__(self, other):
                 return (isinstance(other, HeapItem) and
