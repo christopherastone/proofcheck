@@ -6,12 +6,13 @@ import functools
 import heapq
 import math
 import random
+import re
 import slash
 import sys
 
 DEBUG = False
 VERBOSE = True
-MAX_CATEGORIES_GEN = 100
+MAX_CATEGORIES_GEN = 300
 MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
 MAX_COMPOSITION_ORDER = 3
@@ -24,13 +25,16 @@ assert(MAX_COMPOSITION_ORDER >= 1)
 USE_CCGBANK_LEXICON = True
 
 
+slashre = re.compile(r'[/|\\]')
+
+
 def count_slashes(s):
-    return sum(c == '/' or c == '\\' for c in s)
+    return len(re.findall(slashre, s))
 
 
 def sort_key(s):
-    num_slashes = sum(c == '/' or c == '\\' for c in s)
-    return (num_slashes, len(s[0]), s)
+    s_nondirected, num_slashes = re.subn(slashre, "|", s)
+    return (num_slashes, len(s), s_nondirected, s)
 
 
 class CategoryEnumerator:
@@ -65,7 +69,7 @@ class CategoryEnumerator:
             def __init__(self, cat, rule):
                 self.data = (cat, rule)
                 cat_s = category.alpha_normalized_string(cat)
-                self.key = (count_slashes(cat_s), len(cat_s), cat_s, rule)
+                self.key = (sort_key(cat_s), rule)
 
             def __eq__(self, other):
                 return (isinstance(other, HeapItem) and
@@ -161,10 +165,7 @@ class CategoryEnumerator:
         inhabited = [(category.alpha_normalized_string(c), ", ".join(rs))
                      for c, rs in self.__categories.items()][:MAX_CATEGORIES_SHOW]
 
-        def sort_key_2(s):
-            return sort_key(s[0])
-
-        inhabited.sort(key=sort_key)
+        inhabited.sort(key=lambda x: sort_key(x[0]))
         for s, rule in inhabited:
             print(s, "\t", rule)
         print(len(inhabited), "/", len(self.__categories))
