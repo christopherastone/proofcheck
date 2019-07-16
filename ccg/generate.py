@@ -12,7 +12,7 @@ import sys
 
 DEBUG = False
 VERBOSE = False
-MAX_CATEGORIES_GEN = 300
+MAX_CATEGORIES_GEN = 500
 MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
 MAX_COMPOSITION_ORDER = 3
@@ -95,7 +95,7 @@ class CategoryEnumerator:
         self.__graph = collections.defaultdict(set)
 
         # map from category to creating rules
-        self.__categories = collections.defaultdict(set)
+        self.__categories = collections.defaultdict(list)
 
         # set of (category string, rule) pairs
         #   kept for improved redundency checks
@@ -112,7 +112,7 @@ class CategoryEnumerator:
                 if DEBUG:
                     print(f"    {new_str} is a duplicate for {new_rule}")
                 continue
-            self.__categories[new].add(new_rule)
+            self.__categories[new].append(new_rule)
             self.__redundant.add((new_str, new_rule))
             if VERBOSE:
                 num_heappops += 1
@@ -120,7 +120,7 @@ class CategoryEnumerator:
             for old, old_rules in self.__categories.items():
                 # print(f"    {old} {old_rules}")
                 delta = []
-                if not category.alpha_equal(old, new):
+                if old != new:
                     if DEBUG:
                         print(
                             f"trying rule order {old} {old_rules} {new} {new_rule}")
@@ -152,7 +152,9 @@ class CategoryEnumerator:
             if len(self.__categories) > MAX_CATEGORIES_GEN:
                 print("...etc...")
                 for w, r in [item.data for item in worklist]:
-                    self.__categories[w].add(r)
+                    rule_list = self.__categories[w]
+                    if r not in rule_list:
+                        rule_list.append(r)
                 break
 
             # DEBUG = False
@@ -543,26 +545,6 @@ class CategoryEnumerator:
         for cat in all_visited:
             print(cat)
         print(len(all_visited))
-
-    def find_shortest_paths(self):
-        self.__shortest_path_dist = collections.defaultdict(lambda: math.inf)
-        for cat in self.__categories:
-            self.__shortest_path_dist[(cat, cat)] = 0
-        for src in self.__categories:
-            for _, _, dst in self.__graph[src]:
-                self.__shortest_path_dist[(src, dst)] = 1
-        for mid in self.__categories:
-            for src in self.__categories:
-                for dst in self.__categories:
-                    alt_len = self.__shortest_path_dist[(src, mid)] + \
-                        self.__shortest_path_dist[(mid, dst)]
-                    if (self.__shortest_path_dist[(src, dst)] > alt_len):
-                        self.__shortest_path_dist[(src, dst)] = alt_len
-
-    def print_shortest_paths(self):
-        for (src, dst), distance in self.__shortest_path_dist.items():
-            if distance != 0 and distance != math.inf:
-                print(f'{src} --- {distance} --> {dst}')
 
 
 def test_lexicon(filename):

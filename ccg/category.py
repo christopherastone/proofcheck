@@ -61,10 +61,10 @@ class BaseCategory:
     def with_parens(self, mv_to_string=None):
         return self.__str__(mv_to_string)
 
-    def __eq__(self, other):
+    def __eq__(self, other, mvs_l=None, mvs_r=None):
         # XXX Ignores features!
         return (isinstance(other, BaseCategory) and
-                self.cat == other.cat)
+                self.__cat == other.__cat)
 
     def sub_unify(self, other, sub=pyrsistent.m()):
         # print(f'BaseCategory: sub_unify of {self} and {other}')
@@ -72,8 +72,8 @@ class BaseCategory:
             # Short-circuit after failure in chained unifications.
             answer = None
         elif isinstance(other, CategoryMetavar):
-            assert other not in sub
-            answer = extend_pmap(sub, {other: self})
+            assert id(other) not in sub
+            answer = extend_pmap(sub, {id(other): self})
         elif isinstance(other, BaseCategory):
             # XXX ignores features!
             answer = sub if self == other else None
@@ -84,17 +84,11 @@ class BaseCategory:
         #     f'answer = {answer}')
         return answer
 
-    # def __le__(self, other):
-    #     print(f'BaseCategory: <= of {self} and {other}')
-    #     sub = self.sub_unify(other)
-    #     print(f'BaseCategory: <= of {self} and {other}: sub = {sub}')
-    #     return (sub is not None)
-
     def subst(self, sub):
         # XXX: Ignores feature variables
         return self
 
-    def refresh(self, mv_map=None):
+    def refresh(self, mv_map = None):
         return self
 
 
@@ -102,12 +96,12 @@ class SingletonCategory:
     """A category containing a specific word(s) with
        no interesting semantics"""
 
-    __slots__ = ('__word')
+    __slots__=('__word')
 
     def __init__(self, word):
-        self.__word = word
+        self.__word=word
 
-    def __str__(self, mv_to_string=None):
+    def __str__(self, mv_to_string = None):
         return f'"{self.word}"'
 
     def __repr__(self):
@@ -120,12 +114,12 @@ class SingletonCategory:
     def word(self):
         return self.__word
 
-    def with_parens(self, mv_to_string=None):
+    def with_parens(self, mv_to_string = None):
         return self.__str__(mv_to_string)
 
-    def __eq__(self, other):
+    def __eq__(self, other, mvs_l=None, mvs_r=None):
         return (isinstance(other, SingletonCategory) and
-                self.word == other.word)
+                self.__word == other.__word)
 
     def __le__(self, other):
         return self == other
@@ -147,8 +141,8 @@ class SingletonCategory:
             # Short-circuit after failure in chained unifications.
             answer = None
         elif isinstance(other, CategoryMetavar):
-            assert other not in sub
-            answer = extend_pmap(sub, {other: self})
+            assert id(other) not in sub
+            answer = extend_pmap(sub, {id(other): self})
         elif isinstance(other, SingletonCategory):
             # XXX ignores features!
             answer = sub if self == other else None
@@ -156,14 +150,11 @@ class SingletonCategory:
             answer = None
         return answer
 
-    # def __le__(self, other):
-    #     return self.sub_unify(other) is not None
-
     def subst(self, sub):
         # XXX: Ignores feature variables
         return self
 
-    def refresh(self, mv_map=None):
+    def refresh(self, mv_map = None):
         return self
 
 
@@ -171,14 +162,14 @@ class SlashCategory:
     """A complex grammatical category,
        with a given codomain, domain, and slash"""
 
-    __slots__ = ('__slash', '__cod', '__dom', '__closed')
+    __slots__=('__slash', '__cod', '__dom', '__closed')
 
     def __init__(self, cod, sl, dom):
         assert isinstance(sl, slash.Slash)
-        self.__slash = sl
-        self.__cod = cod
-        self.__dom = dom
-        self.__closed = cod.closed and dom.closed
+        self.__slash=sl
+        self.__cod=cod
+        self.__dom=dom
+        self.__closed=cod.closed and dom.closed
 
     def __hash__(self):
         return hash((self.cod, self.slash, self.dom))
@@ -204,15 +195,15 @@ class SlashCategory:
                f'{self.__slash!r},' \
                f'{self.__dom!r}'
 
-    def __str__(self, mv_to_string=None):
-        answer = f'{self.cod.__str__(mv_to_string)}' \
+    def __str__(self, mv_to_string = None):
+        answer=f'{self.cod.__str__(mv_to_string)}' \
                  f'{self.slash}' \
                  f'{self.dom.with_parens(mv_to_string)}'
         if len(answer) > 35 and mv_to_string is None:
-            answer = "..."
+            answer="..."
         return answer
 
-    def with_parens(self, mv_to_string=None):
+    def with_parens(self, mv_to_string = None):
         return f'({self.__str__(mv_to_string)})'
 
     @property
@@ -222,21 +213,25 @@ class SlashCategory:
         else:
             return self.cod.semty
 
-    def __eq__(self, other):
+    def __eq__(self, other, mvs_l=None, mvs_r=None):
         """Checks for syntactic equality (not unifiability)"""
+        if not self.__closed and mvs_l is None:
+            assert mvs_r is None  # both defined or both None
+            mvs_l = {}
+            mvs_r = {}
         return (isinstance(other, SlashCategory) and
-                (self.slash == other.slash) and
-                (self.dom == other.dom) and
-                (self.cod == other.cod))
+                self.__dom.__eq__(other.__dom, mvs_l, mvs_r) and
+                self.__cod.__eq__(other.__cod, mvs_l, mvs_r) and
+                (self.__slash == other.__slash))
 
     def sub_unify(self, other, sub=pyrsistent.m()):
         if sub is None:
             # Short-circuit after failure in chained unifications.
             answer = None
         elif isinstance(other, CategoryMetavar):
-            assert(other not in sub)
+            assert id(other) not in sub
             # XXX over-precise?
-            answer = extend_pmap(sub, {other: self})
+            answer = extend_pmap(sub, {id(other): self})
         elif isinstance(other, SlashCategory):
             if not (self.slash <= other.slash):
                 # failure because slasheds don't match.
@@ -246,14 +241,11 @@ class SlashCategory:
             # (contravariant) and this codomain to be smaller (codomain)
             sub = self.cod.sub_unify(other.cod, sub)
             if sub is not None:
-                sub = other.dom.subst(sub).sub_unify(self.dom.subst(sub), sub)
+                sub=other.dom.subst(sub).sub_unify(self.dom.subst(sub), sub)
             answer = sub
         else:
             answer = None
         return answer
-
-    # def __le__(self, other):
-    #     return self.sub_unify(other) is not None
 
     def subst(self, sub):
         return SlashCategory(
@@ -283,17 +275,22 @@ class CategoryMetavar:
         return self.__hint
 
     def __repr__(self):
-        return f'SCategoryMetavar({self.hint!r})'
+        return f'SCategoryMetavar({self.__hint!r})'
 
     def __str__(self, mv_to_string=None):
         if mv_to_string is None:
             # return f'M[{self.hint}:{id(self)}]'
-            return f'{self.hint}'
+            return f'{self.__hint}'
         else:
             return mv_to_string(self)
 
     def __hash__(self):
-        return hash(self.hint)
+        return 42   # To make sure that T/T and U/U have the same
+                    #  hash value, given that == does alpha-equivalence
+                    #  and so T/T == U/U
+                    # Fortunately, few categories have more than
+                    #  one metavarible, so it's not really worse
+                    #  than what we do for, say, the base category NP
 
     def with_parens(self, mv_to_string=None):
         return self.__str__(mv_to_string)
@@ -306,29 +303,50 @@ class CategoryMetavar:
     def closed(self):
         return False
 
-    def __eq__(self, other):
-        """Checks for pointer equality (not unifiability)"""
-        return self is other
+    def __eq__(self, other, mvs_l=None, mvs_r=None):
+        #"""Checks for pointer equality (not unifiability)"""
+        #return self is other
+        if not (isinstance(other, CategoryMetavar)):
+            return False
+
+        if mvs_l is None or mvs_r is None:
+            # short-circuit the code below, if we created
+            # an empty dictionary, discovered neither was
+            # present, and updated the dictionary,
+            # and then threw it away.
+            assert(False) # I'm not sure that two isolated Metavars
+                          # should default to being equal...
+            return True
+
+
+        id_self = id(self)
+        id_other = id(other)
+        key_l = mvs_l.get(id_self, None)
+        key_r = mvs_r.get(id_other, None)
+        if key_l != key_r: return False
+        if key_l is None:
+            # hence key_r is also None. Map both to the same "fresh" identifier.
+            third = len(mvs_l)
+            assert third == len(mvs_r)
+            mvs_l[id_self] = third
+            mvs_r[id_other] = third
+        return True
+
 
     def sub_unify(self, other, sub=pyrsistent.m()):
         # print(f'CMV: sub_unify of {self} and {other}')
-
         if sub is None:
             # Short-circuit after failure in chained unifications.
             answer = None
+        elif isinstance(other, CategoryMetavar):
+            third = CategoryMetavar(other.__hint)
+            answer = extend_pmap(sub, {id(self) :  third, id(other) : third})
         else:
-            # XXX over-precise?
-            answer = extend_pmap(sub, {self: other})
+            answer = extend_pmap(sub, {id(self) :  other})
         return answer
 
-    # def __le__(self, other):
-    #     return self.sub_unify(other) is not None
-
     def subst(self, sub):
-        if self in sub:
-            return sub[self]
-        else:
-            return self
+        return sub.get(id(self), self)
 
     def refresh(self, mv_map=None):
         if mv_map is None:
@@ -392,15 +410,6 @@ def alpha_normalized_string(cat):
     return cat.__str__(f)
 
 
-def alpha_equal(cat1, cat2):
-    if cat1.closed:
-        if cat2.closed:
-            return cat1 == cat2
-        else:
-            return False
-    else:
-        return alpha_normalized_string(cat1) == alpha_normalized_string(cat2)
-
 #####################
 # Simple unit tests #
 #####################
@@ -430,15 +439,14 @@ def test_alpha_str():
     for x in cats:
         for y in cats:
             print(explicit_string(x), explicit_string(y), alpha_normalized_string(x), alpha_normalized_string(y),
-                  x == y, alpha_equal(x, y))
-            assert alpha_equal(x, y) == \
+                  x is y, x == y)
+            assert (x == y) == \
                 (alpha_normalized_string(x) ==
                  alpha_normalized_string(y))
 
     for x in cats:
         xr = x.refresh()
-        assert x != xr
-        assert alpha_equal(x, xr)
+        assert x == xr
 
 
 if __name__ == '__main__':
