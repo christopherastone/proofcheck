@@ -11,7 +11,7 @@ import slash
 import sys
 
 DEBUG = False
-VERBOSE = True
+VERBOSE = False
 MAX_CATEGORIES_GEN = 300
 MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
@@ -103,7 +103,8 @@ class CategoryEnumerator:
         num_heappops = 0
         while worklist:
             new, new_rule = heapq.heappop(worklist).data
-            new = new.refresh()
+            if not new.closed:
+                new = new.refresh()
             new_str = category.alpha_normalized_string(new)
             # if "/*" in new_str or "\\*" in new_str:
             #     DEBUG = True
@@ -129,7 +130,7 @@ class CategoryEnumerator:
                             f"trying rule order {new} {new_rule} {old} {old_rules} ")
                     delta += self.try_rules(new, [new_rule], old, old_rules)
                 else:
-                    new2 = new.refresh()
+                    new2 = new if new.closed else new.refresh()
                     delta += self.try_rules(old,
                                             old_rules, new2, [new_rule])
 
@@ -406,7 +407,20 @@ class CategoryEnumerator:
                 left, left_rules, right.cod, right_rules,
                 max_order, [(right.slash, right.dom)] + spine)
 
-        # H&F NF Constraint 1 and
+        # if compositions_found and left.dom.closed:
+        #    return compositions_found
+
+        # OK, let's finally try to do *this* composition.
+
+        if not (right.slash <= slash.RCOMPOSE):
+            # not a composeable slash on the right
+            return compositions_found
+
+        # two composeable right slashes. Confirm they match up
+        sub = right.cod.sub_unify(left.dom)
+        if sub is None:
+            return compositions_found
+
         # Note that just because we can't do an order-1 composition
         # doesn't mean higher-order compositions weren't legal
         # E.g., if a / T      came from >B1
@@ -423,24 +437,13 @@ class CategoryEnumerator:
         # could produce a normal derivation.
         if SKIP_NONNORMAL:
             validity_checks = [
-                not(self.bad_compose(lrule, rrule, '>', order_of_this_composition))
+                self.bad_compose(lrule, rrule, '>', order_of_this_composition)
                 for lrule in left_rules for rrule in right_rules]
-            # validity_checks has True for any *valid* composition and
-            #   False for any invalid composition. We abort only if
+            # validity_checks has False for any *valid* composition and
+            #   True for any invalid composition. We abort only if
             #   there were zero valid compositions.
-            if not(any(validity_checks)):
+            if all(validity_checks):
                 return compositions_found
-
-        # OK, let's finally try to do this composition.
-
-        if not (right.slash <= slash.RCOMPOSE):
-            # not a composeable slash on the right
-            return compositions_found
-
-        # two composeable right slashes. Confirm they match up
-        sub = right.cod.sub_unify(left.dom)
-        if sub is None:
-            return compositions_found
 
         # Put together the final composition
         # (using un-substituted categories!)
@@ -473,9 +476,9 @@ class CategoryEnumerator:
             if DEBUG:
                 print("      built duplicate: ",
                       composition_s, rule)
-            return compositions_found
         else:
-            return [(composition, rule)] + compositions_found
+            compositions_found.append((composition, rule))
+        return compositions_found
 
     def try_rules(self, left, left_rules, right, right_rules):
         return (self.try_forward_apply(left, left_rules, right, right_rules) +

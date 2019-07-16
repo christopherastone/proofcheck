@@ -43,6 +43,9 @@ modes = lattice.FiniteLattice([
 ###########
 
 class Slash:
+
+    __slots__ = ('__dir', '__mode')
+
     def __init__(self, dir, mode):
         self.__dir = dir
         self.__mode = mode
@@ -68,15 +71,15 @@ class Slash:
     #     return f'Slash({self.dir!r},{self.mode!r})'
 
     def __eq__(self, other):
-        return (isinstance(other, Slash) and
-                self.dir == other.dir and
-                self.mode == other.mode)
+        return (  # isinstance(other, Slash) and
+            self.dir == other.dir and
+            self.mode == other.mode)
 
     # XXX: Should undirected be < or > directed???
     def __le__(self, other):
-        return (isinstance(other, Slash) and
-                (self.dir == other.dir or other.dir == UNDIRECTED) and
-                modes.leq(self.mode, other.mode))
+        return (  # isinstance(other, Slash) and
+            (self.__dir == other.__dir or other.__dir == UNDIRECTED) and
+            (self.__mode == other.__mode or modes.lt(self.__mode, other.__mode)))
 
 
 def mk_rslash(mode):

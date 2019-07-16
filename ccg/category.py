@@ -19,6 +19,8 @@ class BaseCategory:
     """An atomic grammatical category, such as NP,
        with optional fixed attributes"""
 
+    __slots__ = ('__cat', '__attrs', '__semty')
+
     def __init__(self, cat, semty, attrs=pyrsistent.m()):
         self.__cat = cat
         self.__attrs = attrs
@@ -51,6 +53,10 @@ class BaseCategory:
     @property
     def semty(self):
         return self.__semty
+
+    @property
+    def closed(self):
+        return True
 
     def with_parens(self, mv_to_string=None):
         return self.__str__(mv_to_string)
@@ -96,6 +102,8 @@ class SingletonCategory:
     """A category containing a specific word(s) with
        no interesting semantics"""
 
+    __slots__ = ('__word')
+
     def __init__(self, word):
         self.__word = word
 
@@ -130,6 +138,10 @@ class SingletonCategory:
     def semty(self):
         return semantic_types.BaseType("1")
 
+    @property
+    def closed(self):
+        return True
+
     def sub_unify(self, other, sub=pyrsistent.m()):
         if sub is None:
             # Short-circuit after failure in chained unifications.
@@ -159,11 +171,14 @@ class SlashCategory:
     """A complex grammatical category,
        with a given codomain, domain, and slash"""
 
+    __slots__ = ('__slash', '__cod', '__dom', '__closed')
+
     def __init__(self, cod, sl, dom):
         assert isinstance(sl, slash.Slash)
         self.__slash = sl
         self.__cod = cod
         self.__dom = dom
+        self.__closed = cod.closed and dom.closed
 
     def __hash__(self):
         return hash((self.cod, self.slash, self.dom))
@@ -180,6 +195,10 @@ class SlashCategory:
     def dom(self):
         return self.__dom
 
+    @property
+    def closed(self):
+        return self.__closed
+
     def __repr__(self):
         return f'SlashCategory({self.cod!r},' \
                f'{self.__slash!r},' \
@@ -194,7 +213,7 @@ class SlashCategory:
         return answer
 
     def with_parens(self, mv_to_string=None):
-        return '(' + self.__str__(mv_to_string) + ')'
+        return f'({self.__str__(mv_to_string)})'
 
     @property
     def semty(self):
@@ -254,6 +273,8 @@ class SlashCategory:
 class CategoryMetavar:
     """An unknown category"""
 
+    __slots__ = ('__hint')
+
     def __init__(self, hint):
         self.__hint = hint
 
@@ -280,6 +301,10 @@ class CategoryMetavar:
     @property
     def semty(self):
         return None
+
+    @property
+    def closed(self):
+        return False
 
     def __eq__(self, other):
         """Checks for pointer equality (not unifiability)"""
@@ -368,8 +393,13 @@ def alpha_normalized_string(cat):
 
 
 def alpha_equal(cat1, cat2):
-    return cat1 == cat2 or \
-        alpha_normalized_string(cat1) == alpha_normalized_string(cat2)
+    if cat1.closed:
+        if cat2.closed:
+            return cat1 == cat2
+        else:
+            return False
+    else:
+        return alpha_normalized_string(cat1) == alpha_normalized_string(cat2)
 
 #####################
 # Simple unit tests #
