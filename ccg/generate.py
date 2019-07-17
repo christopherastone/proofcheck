@@ -225,7 +225,7 @@ class CategoryEnumerator:
                 rule = '<'
                 if DEBUG:
                     print(f"    DEBUG trying {left} {right} <")
-                    print(f"          {argument_s} {functor_s}")
+                    print(f"          {argument} {functor}")
                     print(f"          {left_rules} {right_rules}")
 
                 self.__graph[result].update([functor, argument])
