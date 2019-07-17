@@ -11,8 +11,8 @@ import slash
 import sys
 
 DEBUG = False
-VERBOSE = True
-MAX_CATEGORIES_GEN = 3000
+VERBOSE = False
+MAX_CATEGORIES_GEN = 1000
 MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
 MAX_COMPOSITION_ORDER = 3
@@ -105,18 +105,17 @@ class CategoryEnumerator:
             new, new_rule = heapq.heappop(worklist).data
             if not new.closed:
                 new = new.refresh()
-            new_str = category.alpha_normalized_string(new)
             # if "/*" in new_str or "\\*" in new_str:
             #     DEBUG = True
-            if (new_str, new_rule) in self.__redundant:
+            if (new, new_rule) in self.__redundant:
                 if DEBUG:
-                    print(f"    {new_str} is a duplicate for {new_rule}")
+                    print(f"    {new} is a duplicate for {new_rule}")
                 continue
             self.__categories[new].append(new_rule)
-            self.__redundant.add((new_str, new_rule))
+            self.__redundant.add((new, new_rule))
             if VERBOSE:
                 num_heappops += 1
-                print(f"{new_str} {new_rule} ({num_heappops})")
+                print(f"{new} {new_rule} ({num_heappops})")
             for old, old_rules in self.__categories.items():
                 # print(f"    {old} {old_rules}")
                 delta = []
@@ -198,7 +197,7 @@ class CategoryEnumerator:
                     print(f"          {functor_s} {argument_s} {rule}")
                     print(f"          {left_rules} {right_rules}")
                 self.__graph[result_s].update([functor_s, argument_s])
-                if (result_s, rule) not in \
+                if (result, rule) not in \
                         self.__redundant:
                     return [(result, rule)]
                 else:
@@ -239,7 +238,7 @@ class CategoryEnumerator:
                     print(f"          {left_rules} {right_rules}")
 
                 self.__graph[result_s].update([functor_s, argument_s])
-                if (result_s, rule) in \
+                if (result, rule) in \
                         self.__redundant:
                     if DEBUG:
                         print("      built duplicate: ",
@@ -277,7 +276,7 @@ class CategoryEnumerator:
                 rule = '<B'
 
                 self.__graph[composition_s].update([primary_s, secondary_s])
-                if (composition_s, rule) in self.__redundant:
+                if (composition, rule) in self.__redundant:
                     if DEBUG:
                         print("      built duplicate: ",
                               composition_s, rule)
@@ -316,7 +315,7 @@ class CategoryEnumerator:
             rule = '<xB'
 
             self.__graph[composition_s].update([primary_s, secondary_s])
-            if (composition_s, rule) in self.__redundant:
+            if (composition, rule) in self.__redundant:
                 if DEBUG:
                     print("      built duplicate: ",
                           composition_s, rule)
@@ -474,7 +473,7 @@ class CategoryEnumerator:
             print(f"          {composition_s}")
 
         self.__graph[composition_s].update([primary_s, secondary_s])
-        if (composition_s, rule) in self.__redundant:
+        if (composition, rule) in self.__redundant:
             if DEBUG:
                 print("      built duplicate: ",
                       composition_s, rule)
