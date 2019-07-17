@@ -28,10 +28,6 @@ USE_CCGBANK_LEXICON = True
 slashre = re.compile(r'[/|\\]')
 
 
-def count_slashes(s):
-    return len(re.findall(slashre, s))
-
-
 def sort_key(s):
     s_nondirected, num_slashes = re.subn(slashre, "|", s)
     return (num_slashes, len(s), s_nondirected, s)
