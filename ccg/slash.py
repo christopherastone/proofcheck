@@ -78,7 +78,7 @@ class Slash:
     # XXX: Should undirected be < or > directed???
     def __le__(self, other):
         return (  # isinstance(other, Slash) and
-            (self.__dir == other.__dir or other.__dir == UNDIRECTED) and
+            (self.__dir == other.__dir or self.__dir == UNDIRECTED) and
             (self.__mode == other.__mode or modes.lt(self.__mode, other.__mode)))
 
 
