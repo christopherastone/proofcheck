@@ -19,17 +19,18 @@ class BaseCategory:
     """An atomic grammatical category, such as NP,
        with optional fixed attributes"""
 
-    __slots__ = ('__cat', '__attrs', '__semty')
+    __slots__ = ('__cat', '__attrs', '__semty', '__hash')
 
     def __init__(self, cat, semty, attrs=pyrsistent.m()):
         self.__cat = cat
         self.__attrs = attrs
         self.__semty = semty
+        self.__hash = hash((cat, attrs))
 
     def __str__(self, mv_to_string=None):
         suffix = \
-            '[' + ', '.join(self.__attrs.values()) + ']' if self.attrs else ''
-        return self.cat + suffix
+            '[' + ', '.join(self.__attrs.values()) + ']' if self.__attrs else ''
+        return self.__cat + suffix
 
     def __repr__(self):
         if self.__attrs:
@@ -40,7 +41,7 @@ class BaseCategory:
             return f'BaseCategory({self.__cat!r},{self.__semty!r})'
 
     def __hash__(self):
-        return hash((self.cat, self.attrs))
+        return self.__hash
 
     @property
     def cat(self):
@@ -102,13 +103,13 @@ class SingletonCategory:
         self.__word=word
 
     def __str__(self, mv_to_string = None):
-        return f'"{self.word}"'
+        return f'"{self.__word}"'
 
     def __repr__(self):
-        return f'SingletonCategory({self.word!r})'
+        return f'SingletonCategory({self.__word!r})'
 
     def __hash__(self):
-        return hash(self.word)
+        return hash(self.__word)
 
     @property
     def word(self):
@@ -162,17 +163,21 @@ class SlashCategory:
     """A complex grammatical category,
        with a given codomain, domain, and slash"""
 
-    __slots__=('__slash', '__cod', '__dom', '__closed')
+    __slots__=('__slash', '__cod', '__dom', '__closed', '__hash')
 
     def __init__(self, cod, sl, dom):
         assert isinstance(sl, slash.Slash)
-        self.__slash=sl
-        self.__cod=cod
-        self.__dom=dom
-        self.__closed=cod.closed and dom.closed
+        self.__slash = sl
+        self.__cod = cod
+        self.__dom = dom
+        self.__closed = cod.closed and dom.closed
+        self.__hash = hash((cod,sl,dom)) if self.__closed else None
 
     def __hash__(self):
-        return hash((self.cod, self.slash, self.dom))
+        if self.__hash is not None:
+            return self.__hash
+        else:
+            return hash((self.__cod, self.__slash, self.__dom))
 
     @property
     def cod(self):
@@ -191,14 +196,14 @@ class SlashCategory:
         return self.__closed
 
     def __repr__(self):
-        return f'SlashCategory({self.cod!r},' \
+        return f'SlashCategory({self.__cod!r},' \
                f'{self.__slash!r},' \
                f'{self.__dom!r}'
 
     def __str__(self, mv_to_string = None):
-        answer=f'{self.cod.__str__(mv_to_string)}' \
-                 f'{self.slash}' \
-                 f'{self.dom.with_parens(mv_to_string)}'
+        answer=f'{self.__cod.__str__(mv_to_string)}' \
+                 f'{self.__slash}' \
+                 f'{self.__dom.with_parens(mv_to_string)}'
         if len(answer) > 35 and mv_to_string is None:
             answer="..."
         return answer
@@ -208,10 +213,7 @@ class SlashCategory:
 
     @property
     def semty(self):
-        if self.dom.semty:
-            return semantic_types.ArrowType(self.dom.semty, self.cod.semty)
-        else:
-            return self.cod.semty
+        return semantic_types.ArrowType(self.__dom.semty, self.__cod.semty)
 
     def __eq__(self, other, mvs_l=None, mvs_r=None):
         """Checks for syntactic equality (not unifiability)"""
@@ -233,33 +235,38 @@ class SlashCategory:
             # XXX over-precise?
             answer = extend_pmap(sub, {id(other): self})
         elif isinstance(other, SlashCategory):
-            if not (self.slash <= other.slash):
+            if not (self.__slash <= other.__slash):
                 # failure because slasheds don't match.
                 # XXX update when we have variable slash modes!
-                return None
+                sub = None
             # If the slashes match we need the other domain to be smaller
             # (contravariant) and this codomain to be smaller (codomain)
-            sub = self.cod.sub_unify(other.cod, sub)
+            sub = self.__cod.sub_unify(other.__cod, sub)
             if sub is not None:
-                sub=other.dom.subst(sub).sub_unify(self.dom.subst(sub), sub)
+                sub=other.__dom.subst(sub).sub_unify(self.__dom.subst(sub), sub)
             answer = sub
         else:
             answer = None
         return answer
 
     def subst(self, sub):
-        return SlashCategory(
-            self.cod.subst(sub),
-            self.slash,
-            self.dom.subst(sub))
+        if self.__closed:
+            return self
+        else:
+            return SlashCategory(
+                self.__cod.subst(sub),
+                self.__slash,
+                self.__dom.subst(sub))
 
     def refresh(self, mv_map=None):
+        if self.__closed:
+            return self
         if mv_map is None:
             mv_map = {}
         return SlashCategory(
-            self.cod.refresh(mv_map),
-            self.slash,
-            self.dom.refresh(mv_map))
+            self.__cod.refresh(mv_map),
+            self.__slash,
+            self.__dom.refresh(mv_map))
 
 
 class CategoryMetavar:
@@ -279,7 +286,6 @@ class CategoryMetavar:
 
     def __str__(self, mv_to_string=None):
         if mv_to_string is None:
-            # return f'M[{self.hint}:{id(self)}]'
             return f'{self.__hint}'
         else:
             return mv_to_string(self)
@@ -355,7 +361,7 @@ class CategoryMetavar:
         if key in mv_map:
             return mv_map[key]
         else:
-            answer = CategoryMetavar(self.hint)
+            answer = CategoryMetavar(self.__hint)
             mv_map[key] = answer
             return answer
 

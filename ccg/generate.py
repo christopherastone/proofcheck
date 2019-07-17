@@ -189,14 +189,12 @@ class CategoryEnumerator:
                 argument = right.subst(sub)
                 result = functor.cod.subst(sub)
                 rule = '>'
-                functor_s = category.alpha_normalized_string(functor)
-                argument_s = category.alpha_normalized_string(argument)
-                result_s = category.alpha_normalized_string(result)
+
                 if DEBUG:
                     print(f"    DEBUG trying {left} {right}")
-                    print(f"          {functor_s} {argument_s} {rule}")
+                    print(f"          {functor} {argument} {rule}")
                     print(f"          {left_rules} {right_rules}")
-                self.__graph[result_s].update([functor_s, argument_s])
+                self.__graph[result].update([functor, argument])
                 if (result, rule) not in \
                         self.__redundant:
                     return [(result, rule)]
@@ -226,23 +224,20 @@ class CategoryEnumerator:
             # print(sub is not None)
             if sub is not None:
                 functor = right.subst(sub)
-                functor_s = category.alpha_normalized_string(functor)
-                argument_s = \
-                    category.alpha_normalized_string(left.subst(sub))
+                argument = left.subst(sub)
                 result = functor.cod.subst(sub)
-                result_s = category.alpha_normalized_string(result)
                 rule = '<'
                 if DEBUG:
                     print(f"    DEBUG trying {left} {right} <")
                     print(f"          {argument_s} {functor_s}")
                     print(f"          {left_rules} {right_rules}")
 
-                self.__graph[result_s].update([functor_s, argument_s])
+                self.__graph[result].update([functor, argument])
                 if (result, rule) in \
                         self.__redundant:
                     if DEBUG:
                         print("      built duplicate: ",
-                              result_s, rule)
+                              result, rule)
 
                     return []
                 else:
@@ -270,16 +265,13 @@ class CategoryEnumerator:
                     primary.cod,
                     secondary.slash,
                     secondary.dom)
-                primary_s = category.alpha_normalized_string(primary)
-                secondary_s = category.alpha_normalized_string(secondary)
-                composition_s = category.alpha_normalized_string(composition)
                 rule = '<B'
 
-                self.__graph[composition_s].update([primary_s, secondary_s])
+                self.__graph[composition].update([primary, secondary])
                 if (composition, rule) in self.__redundant:
                     if DEBUG:
                         print("      built duplicate: ",
-                              composition_s, rule)
+                              composition, rule)
                     return []
                 else:
                     return [(composition, rule)]
@@ -309,16 +301,13 @@ class CategoryEnumerator:
                 primary.cod,
                 secondary.slash,
                 secondary.dom)
-            primary_s = category.alpha_normalized_string(primary)
-            secondary_s = category.alpha_normalized_string(secondary)
-            composition_s = category.alpha_normalized_string(composition)
             rule = '<xB'
 
-            self.__graph[composition_s].update([primary_s, secondary_s])
+            self.__graph[composition].update([primary, secondary])
             if (composition, rule) in self.__redundant:
                 if DEBUG:
                     print("      built duplicate: ",
-                          composition_s, rule)
+                          composition, rule)
                 return []
             else:
                 # print("aha: <Bx applies")
@@ -458,10 +447,6 @@ class CategoryEnumerator:
         secondary = right.subst(sub)
         composition = composition.subst(sub)
 
-        primary_s = category.alpha_normalized_string(primary)
-        secondary_s = category.alpha_normalized_string(secondary)
-        composition_s = category.alpha_normalized_string(composition)
-
         rule = '>B'
         if (order_of_this_composition > 1):
             rule += str(order_of_this_composition)
@@ -469,14 +454,14 @@ class CategoryEnumerator:
         if DEBUG:
             print(f"    DEBUG trying >B" + str(order_of_this_composition))
             print(f"          {left} {left_rules} {right} {right_rules}")
-            print(f"          {primary_s} {secondary_s}")
-            print(f"          {composition_s}")
+            print(f"          {primary} {secondary}")
+            print(f"          {composition}")
 
-        self.__graph[composition_s].update([primary_s, secondary_s])
+        self.__graph[composition].update([primary, secondary])
         if (composition, rule) in self.__redundant:
             if DEBUG:
                 print("      built duplicate: ",
-                      composition_s, rule)
+                      composition, rule)
         else:
             compositions_found.append((composition, rule))
         return compositions_found
@@ -507,12 +492,8 @@ class CategoryEnumerator:
             t, slash.LSLASH, category.SlashCategory(
                 t, slash.RSLASH, cat))
 
-        cat_s = category.alpha_normalized_string(cat)
-        fwd_s = category.alpha_normalized_string(fwd)
-        back_s = category.alpha_normalized_string(back)
-
-        self.__graph[fwd_s].add(cat_s)
-        self.__graph[back_s].add(cat_s)
+        self.__graph[fwd].add(cat)
+        self.__graph[back].add(cat)
 
         return [(fwd, '>T'), (back, '<T')]
 
@@ -524,11 +505,11 @@ class CategoryEnumerator:
     def bfs(self):
         print("\n\nUseful (reachable) inhabited categories from S\n")
 
-        print(f'for constructing S   : {self.__graph["S"]}')
-        print(f'for constructing S/NP: {self.__graph["S/NP"]}')
+        print(f'for constructing S   : {self.__graph[category.S]}')
+        # print(f'for constructing S/NP: {self.__graph[category.]}')
 
         visited = set()
-        queue = ['S']
+        queue = [category.S]
 
         while queue:
             next = queue.pop(0)
