@@ -177,13 +177,10 @@ class SlashCategory:
         self.__cod = cod
         self.__dom = dom
         self.__closed = cod.closed and dom.closed
-        self.__hash = hash((cod,sl,dom)) if self.__closed else None
+        self.__hash = hash((cod,sl,dom))
 
     def __hash__(self):
-        if self.__hash is not None:
-            return self.__hash
-        else:
-            return hash((self.__cod, self.__slash, self.__dom))
+        return self.__hash
 
     @property
     def cod(self):
@@ -242,14 +239,13 @@ class SlashCategory:
             answer = extend_pmap(sub, {id(other): self})
         elif isinstance(other, SlashCategory):
             if not (self.__slash <= other.__slash):
-                # failure because slasheds don't match.
+                # failure because slashes don't match.
                 # XXX update when we have variable slash modes!
                 sub = None
             # If the slashes match we need the other domain to be smaller
             # (contravariant) and this codomain to be smaller (codomain)
             sub = self.__cod.sub_unify(other.__cod, sub)
-            if sub is not None:
-                sub=other.__dom.subst(sub).sub_unify(self.__dom.subst(sub), sub)
+            sub=other.__dom.subst(sub).sub_unify(self.__dom.subst(sub), sub)
             answer = sub
         else:
             answer = None
@@ -358,7 +354,11 @@ class CategoryMetavar:
         return answer
 
     def subst(self, sub):
-        return sub.get(id(self), self)
+        if sub is not None:
+            return sub.get(id(self), self)
+        else:
+            # a past unification failed; just keep going
+            return self
 
     def refresh(self, mv_map=None):
         if mv_map is None:
