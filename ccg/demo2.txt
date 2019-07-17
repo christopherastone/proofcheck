@@ -4,7 +4,9 @@ Y :: e
 Z :: e
 W :: e
 
-a : X/Y
+a : X/Y[a]
 b : Y/Z
 c : Z/W
 s : S/(X/W)
+
+1. "a b" X/Z

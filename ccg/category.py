@@ -63,9 +63,9 @@ class BaseCategory:
         return self.__str__(mv_to_string)
 
     def __eq__(self, other, mvs_l=None, mvs_r=None):
-        # XXX Ignores features!
         return (isinstance(other, BaseCategory) and
-                self.__cat == other.__cat)
+                self.__cat == other.__cat and
+                self.__attrs == other.__attrs)
 
     def sub_unify(self, other, sub=pyrsistent.m()):
         # print(f'BaseCategory: sub_unify of {self} and {other}')
@@ -76,8 +76,16 @@ class BaseCategory:
             assert id(other) not in sub
             answer = extend_pmap(sub, {id(other): self})
         elif isinstance(other, BaseCategory):
-            # XXX ignores features!
-            answer = sub if self == other else None
+            if self.__cat != other.__cat:
+                return None
+            elif self.__attrs == other.__attrs:
+                answer = sub
+            elif len(other.__attrs) > len(self.__attrs):
+                answer = None
+            elif set(self.__attrs.items()) >= set(other.__attrs.items()):
+                answer = sub
+            else:
+                answer = None
         else:
             answer = None
         # print(
@@ -145,14 +153,12 @@ class SingletonCategory:
             assert id(other) not in sub
             answer = extend_pmap(sub, {id(other): self})
         elif isinstance(other, SingletonCategory):
-            # XXX ignores features!
             answer = sub if self == other else None
         else:
             answer = None
         return answer
 
     def subst(self, sub):
-        # XXX: Ignores feature variables
         return self
 
     def refresh(self, mv_map = None):
