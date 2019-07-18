@@ -11,8 +11,8 @@ import slash
 import sys
 
 DEBUG = False
-VERBOSE = False
-MAX_CATEGORIES_GEN = 1000
+VERBOSE = True
+MAX_CATEGORIES_GEN = 50
 MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
 MAX_COMPOSITION_ORDER = 3
@@ -31,6 +31,29 @@ slashre = re.compile(r'[/|\\]')
 def sort_key(s):
     s_nondirected, num_slashes = re.subn(slashre, "|", s)
     return (num_slashes, len(s), s_nondirected, s)
+
+
+def pp_info(info):
+    return "  ".join(str(cat) for cat in info)
+
+
+@functools.total_ordering
+class HeapItem:
+    def __init__(self, cat, rule):
+        self.data = (cat, rule)
+        cat_s = category.alpha_normalized_string(cat)
+        self.key = (rule != 'LEX', sort_key(cat_s), rule)
+
+    def __eq__(self, other):
+        return (isinstance(other, HeapItem) and
+                self.key == other.key)
+
+    def __lt__(self, other):
+        return (isinstance(other, HeapItem) and
+                self.key < other.key)
+
+    def __str__(self):
+        return f'{self.key[3]}'
 
 
 class CategoryEnumerator:
@@ -60,59 +83,36 @@ class CategoryEnumerator:
         # for word in self.__singletons:
         #    self.__rules.append(Rule(category.SingletonCategory(word), [word]))
 
-        @functools.total_ordering
-        class HeapItem:
-            def __init__(self, cat, rule):
-                self.data = (cat, rule)
-                cat_s = category.alpha_normalized_string(cat)
-                self.key = (rule != 'LEX', sort_key(cat_s), rule)
-
-            def __eq__(self, other):
-                return (isinstance(other, HeapItem) and
-                        self.key == other.key)
-
-            def __lt__(self, other):
-                return (isinstance(other, HeapItem) and
-                        self.key < other.key)
-
-            def __str__(self):
-                return f'{self.key[3]}'
-
         worklist = []  # empty heap!
-
-        def add_to_worklist(cat_rule_list):
-            nonlocal worklist
-            for cat, rule in cat_rule_list:
-                heapq.heappush(worklist, HeapItem(cat, rule))
-
-        # initialize worklist with lexical itmes
-        add_to_worklist([(cat, 'LEX') for cat in self.__original_cats])
 
         self.__graph = collections.defaultdict(set)
 
-        # map from category to creating rules
-        self.__categories = collections.defaultdict(list)
+        # map from category to
+        #   map from creating rules to justifications
+        self.__categories = collections.defaultdict(
+            lambda: collections.defaultdict(list))
 
-        # set of (category string, rule) pairs
-        #   kept for improved redundency checks
-        self.__redundant = set()
+        # initialize worklist with lexical itmes
+        self.add_to_worklist(
+            [(cat, 'LEX', ['-']) for cat in self.__original_cats],
+            worklist)
+
+        # map of categories to rules
+        #   (specifically, all the data we've pulled off the worklist)
+        processed = collections.defaultdict(list)
+
         num_heappops = 0
         while worklist:
             new, new_rule = heapq.heappop(worklist).data
+            processed[new].append(new_rule)
             if not new.closed:
                 new = new.refresh()
             # if "/*" in new_str or "\\*" in new_str:
             #     DEBUG = True
-            if (new, new_rule) in self.__redundant:
-                if DEBUG:
-                    print(f"    {new} is a duplicate for {new_rule}")
-                continue
-            self.__categories[new].append(new_rule)
-            self.__redundant.add((new, new_rule))
             if VERBOSE:
                 num_heappops += 1
                 print(f"{new} {new_rule} ({num_heappops})")
-            for old, old_rules in self.__categories.items():
+            for old, old_rules in processed.items():
                 # print(f"    {old} {old_rules}")
                 delta = []
                 if old != new:
@@ -132,24 +132,20 @@ class CategoryEnumerator:
                 if delta:
                     if DEBUG:
                         print(f'    vs. {old}')
-                        print("      adding: ", ", ".join([category.alpha_normalized_string(c) + " " + r
-                                                           for c, r in delta]))
+                        print("      adding: ", ", ".join([category.alpha_normalized_string(c) + " " + r + " " + pp_info(info)
+                                                           for c, r, info in delta]))
 
-                    add_to_worklist(delta)
+                    self.add_to_worklist(delta, worklist)
 
             delta = self.typeraise(new, [new_rule])
             if DEBUG:
                 print("  adding: ", ", ".join(
                     [category.alpha_normalized_string(c) + " " + r
-                     for c, r in delta]))
-            add_to_worklist(delta)
+                     for c, r, _ in delta]))
+            self.add_to_worklist(delta, worklist)
 
-            if len(self.__categories) > MAX_CATEGORIES_GEN:
+            if num_heappops > MAX_CATEGORIES_GEN:
                 print("...etc...")
-                for w, r in [item.data for item in worklist]:
-                    rule_list = self.__categories[w]
-                    if r not in rule_list:
-                        rule_list.append(r)
                 break
 
             # DEBUG = False
@@ -160,13 +156,28 @@ class CategoryEnumerator:
 
         print("\n\nINHABITED CATEGORIES\n")
 
-        inhabited = [(category.alpha_normalized_string(c), ", ".join(rs))
-                     for c, rs in self.__categories.items()][:MAX_CATEGORIES_SHOW]
+        for c, infomap in self.__categories.items():
+            print(c)
+            for rule, reasons in infomap.items():
+                print(f'  {rule}')
+                for reason in reasons:
+                    print(f'    {"  ".join(str(cat) for cat in reason)}')
+        exit(0)
+
+        inhabited = [(category.alpha_normalized_string(c),
+                      ", ".join(" ".join([key]+values for key, values in infomap.items())))
+                     for c, infomap in self.__categories.items()][:MAX_CATEGORIES_SHOW]
 
         inhabited.sort(key=lambda x: sort_key(x[0]))
         for s, rule in inhabited:
             print(s, "\t", rule)
         print(len(inhabited), "/", len(self.__categories))
+
+    def add_to_worklist(self, cat_rule_info_list, worklist):
+        for cat, rule, info in cat_rule_info_list:
+            if (self.__categories[cat][rule] == []):
+                heapq.heappush(worklist, HeapItem(cat, rule))
+            self.__categories[cat][rule].append(info)
 
     def try_forward_apply(self, left, left_rules, right, right_rules):
         """Consider the given combination of categories to see if
@@ -191,13 +202,7 @@ class CategoryEnumerator:
                     print(f"          {functor} {argument} {rule}")
                     print(f"          {left_rules} {right_rules}")
                 self.__graph[result].update([functor, argument])
-                if (result, rule) not in \
-                        self.__redundant:
-                    return [(result, rule)]
-                else:
-                    if DEBUG:
-                        print("      built duplicate: ",
-                              category.alpha_normalized_string(result))
+                return [(result, rule, (functor, argument))]
 
         return []
 
@@ -229,15 +234,7 @@ class CategoryEnumerator:
                     print(f"          {left_rules} {right_rules}")
 
                 self.__graph[result].update([functor, argument])
-                if (result, rule) in \
-                        self.__redundant:
-                    if DEBUG:
-                        print("      built duplicate: ",
-                              result, rule)
-
-                    return []
-                else:
-                    return [(result, rule)]
+                return [(result, rule, (argument, functor))]
 
         return []
 
@@ -264,13 +261,7 @@ class CategoryEnumerator:
                 rule = '<B'
 
                 self.__graph[composition].update([primary, secondary])
-                if (composition, rule) in self.__redundant:
-                    if DEBUG:
-                        print("      built duplicate: ",
-                              composition, rule)
-                    return []
-                else:
-                    return [(composition, rule)]
+                return [(composition, rule, (secondary, primary))]
 
         return []
 
@@ -300,17 +291,7 @@ class CategoryEnumerator:
             rule = '<xB'
 
             self.__graph[composition].update([primary, secondary])
-            if (composition, rule) in self.__redundant:
-                if DEBUG:
-                    print("      built duplicate: ",
-                          composition, rule)
-                return []
-            else:
-                # print("aha: <Bx applies")
-                # print(f"  {left} {left_rules} {right} {right_rules}")
-                # print(f"  {secondary} {left_rules} {primary} {right_rules}")
-                # print(f"  {composition}")
-                return [(composition, rule)]
+            return [(composition, rule, (secondary, primary))]
 
         return []
 
@@ -454,12 +435,7 @@ class CategoryEnumerator:
             print(f"          {composition}")
 
         self.__graph[composition].update([primary, secondary])
-        if (composition, rule) in self.__redundant:
-            if DEBUG:
-                print("      built duplicate: ",
-                      composition, rule)
-        else:
-            compositions_found.append((composition, rule))
+        compositions_found.append((composition, rule, (primary, secondary)))
         return compositions_found
 
     def try_rules(self, left, left_rules, right, right_rules):
@@ -491,7 +467,7 @@ class CategoryEnumerator:
         self.__graph[fwd].add(cat)
         self.__graph[back].add(cat)
 
-        return [(fwd, '>T'), (back, '<T')]
+        return [(fwd, '>T', (cat,)), (back, '<T', (cat,))]
 
     def print_graph(self):
         for start, ends in self.__graph.items():
