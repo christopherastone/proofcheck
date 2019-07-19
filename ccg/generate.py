@@ -5,8 +5,9 @@ import collections
 import functools
 import heapq
 import math
-import pickle
 import os
+import pickle
+import pyrsistent
 import random
 import re
 import slash
@@ -67,6 +68,14 @@ def reset(filename):
         for infos in lexicon.values():
             for cat, _ in infos:
                 inhabited1.add(cat)
+
+    type_raised = []
+    for cat in inhabited1:
+        if not cat.closed:
+            continue
+        type_raised += [x[0] for x in typeraise(cat, [])]
+    inhabited1.update(type_raised)
+
 
     inhabited = {1: inhabited1}
 
@@ -409,11 +418,15 @@ def typeraise(cat, rules):
             t, slash.LSLASH, category.SlashCategory(
                 t, slash.RSLASH, cat))
 
+    generic_S = category.BaseCategory('S',
+                                      pyrsistent.m(it=category.Metavar('X')))
+
     if cat.sub_unify(category.NP):
-        return [mk_fwd(category.S), mk_back(category.S),
+        return [mk_fwd(generic_S), mk_back(generic_S),
                 mk_fwd(category.SlashCategory(
-                    category.S, slash.LSLASH, category.NP)),
-                mk_fwd(category.SlashCategory(category.S, slash.LSLASH, category.NP))]
+                    generic_S, slash.LSLASH, category.NP)),
+                mk_fwd(category.SlashCategory(
+                    generic_S, slash.LSLASH, category.NP))]
 
     if cat.sub_unify(category.PP):
         return [mk_fwd(category.S), mk_back(category.S)]
