@@ -291,8 +291,8 @@ def try_general_forward_compose(left, left_rules, right, right_rules,
 
     # This code doesn't work if one of the sides is an actual
     # metavariable.
-    assert(not (isinstance(left, category.CategoryMetavar)))
-    assert(not (isinstance(right, category.CategoryMetavar)))
+    assert(not (isinstance(left, category.Metavar)))
+    assert(not (isinstance(right, category.Metavar)))
 
     if not (isinstance(left, category.SlashCategory) and
             left.slash <= slash.RCOMPOSE and

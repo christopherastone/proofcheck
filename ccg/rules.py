@@ -484,7 +484,7 @@ def typeraise_simple(item, dest):
 
 
 def typeraise_generic(item, dest):
-    T = category.CategoryMetavar("T")
+    T = category.Metavar("T")
     typeraise_right(T, item, dest)
     typeraise_left(T, item, dest)
 
@@ -727,7 +727,7 @@ def test_gfc():
     assert ans9[0].why[0] == '>B0'
 
 
-parsingRules = [[typeraise_generic],
+parsingRules = [[typeraise_simple],
                 [forward_application,
                  backward_application,
                  forward_composition,

@@ -33,7 +33,7 @@ def test_lexicon(filename):
     lexicon_data = open(filename).read().splitlines()
     lexicon, sentences = catparser.do_parses(lexicon_data)
 
-    mv = CategoryMetavar("X")
+    mv = Metavar("X")
     AND_MODE = slash.PHI   # APPLYONLY
     cat = SlashCategory(
         SlashCategory(mv, slash.mk_lslash(AND_MODE), mv),

@@ -270,14 +270,19 @@ def p_atcat_4(p):
     p[0] = category.SingletonCategory(p[1])
 
 
-def p_attr_1(p):
+def p_attr_1a(p):
     '''attr : WORD'''
-    p[0] = pyrsistent.pmap({'it': p[1]})
+    p[0] = pyrsistent.pmap({'it': category.Attr(p[1])})
+
+
+def p_attr_1b(p):
+    '''attr : QUERY'''
+    p[0] = pyrsistent.pmap({'it': category.Metavar('?')})
 
 
 def p_attr_2(p):
     '''attr : WORD EQ WORD'''
-    p[0] = pyrsistent.pmap({p[1]: p[3]})
+    p[0] = pyrsistent.pmap({p[1]: category.Attr(p[3])})
 
 
 def p_attrs_1(p):

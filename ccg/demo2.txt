@@ -5,7 +5,7 @@ Z :: e
 W :: e
 
 a : X/Y
-b : Y/Z
+b : Y[yes]/Z
 c : Z/W
 s : S/(X/W)
 
