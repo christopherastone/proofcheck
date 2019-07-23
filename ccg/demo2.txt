@@ -3,10 +3,12 @@ X :: e
 Y :: e
 Z :: e
 W :: e
+NP :: e
+PP :: e
+N :: e
 
-a : X/Y
-b : Y[yes]/Z
-c : Z/W
-s : S/(X/W)
+a : S/Y/Z
+b : Y/W
+c : Z
 
-1. "a b" X/Z
+1. "a b" 
