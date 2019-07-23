@@ -136,7 +136,7 @@ def populate_inhabited(filename, n):
 
     inhabited[n] = inhabited_n
     print(f"inhabited({n}) done. Found {len(inhabited_n)} categories")
-    print(pp_info(inhabited_n))
+    #print(pp_info(inhabited_n))
 
     print(f"building hierarchy")
     hierarchies[n] = make_hierarchy(inhabited_n)
@@ -251,6 +251,38 @@ def all_forward_compositions(n):
                                 composition = category.SlashCategory(primary.cod, secondary.slash, secondary.dom)
                                 results.append((composition, '>B', (primary, secondary)))
                                 #print(f"B1  {composition}  -->  {primary} {secondary}")
+                    if sl2 in hierarchy_right.left.has_slash.keys():
+                        cats2 = hierarchy_right.left.has_slash[sl2].left.with_shape[common_shape]
+                        for cat2 in cats2:
+                            sub = cat2.cod.cod.sub_unify(cat1.dom)
+                            if sub is not None:
+                                primary = cat1.subst(sub)
+                                secondary = cat2.subst(sub)
+                                composition = category.SlashCategory(
+                                    category.SlashCategory(primary.cod, secondary.cod.slash, secondary.cod.dom),
+                                    secondary.slash, secondary.dom)
+                                results.append((composition, '>B2', (primary, secondary)))
+                    if sl2 in hierarchy_right.left.left.has_slash.keys():
+                        cats2 = hierarchy_right.left.left.has_slash[sl2].left.with_shape[common_shape]
+                        for cat2 in cats2:
+                            sub = cat2.cod.cod.cod.sub_unify(cat1.dom)
+                            if sub is not None:
+                                primary = cat1.subst(sub)
+                                secondary = cat2.subst(sub)
+                                composition = \
+                                    category.SlashCategory(
+                                      category.SlashCategory(
+                                        category.SlashCategory(primary.cod, secondary.cod.cod.slash, secondary.cod.cod.dom),
+                                        secondary.cod.slash, secondary.cod.dom),
+                                    secondary.slash, secondary.dom)
+                                results.append((composition, '>B2', (primary, secondary)))
+                            # sub = cat2.cod.sub_unify(cat1.dom)
+                            # if sub is not None:
+                            #     primary = cat1.subst(sub)
+                            #     secondary = cat2.subst(sub)
+                            #     composition = category.SlashCategory(primary.cod, secondary.slash, secondary.dom)
+                            #     results.append((composition, '>B', (primary, secondary)))
+                            #     #print(f"B1  {composition}  -->  {primary} {secondary}")
 
 
     return results
@@ -455,8 +487,8 @@ def try_general_forward_compose(left, left_rules, right, right_rules,
     # if order_of_this_composition == 1:  # XXX: for debugging
     #     if composition not in inhabited_n:
     #         print(f"missing composition: {composition} -> {primary} {secondary}")
-    if (order_of_this_composition > 1):
-        # we already optimized the >B1 case
+    if (order_of_this_composition > 3):
+        # we already optimized the >B1 and >B2 case
         compositions_found.append((composition, rule, (primary, secondary)))
 
     return compositions_found
@@ -467,7 +499,7 @@ def try_binary_rules(left, left_rules, right, right_rules):
         # try_backward_apply(left, left_rules, right, right_rules) +
         # try_forward_compose(left, left_rules, right, right_rules) +
         try_backward_compose(left, left_rules, right, right_rules) +
-        try_general_forward_compose(left, left_rules, right, right_rules, MAX_COMPOSITION_ORDER, []) +
+        #try_general_forward_compose(left, left_rules, right, right_rules, MAX_COMPOSITION_ORDER, []) +
         try_backwards_cross_compose(left, left_rules, right, right_rules))
 
 
@@ -718,7 +750,7 @@ def make_hierarchy(categories):
 
 def test_lexicon(filename):
 
-    for n in range(1, 4):
+    for n in range(1, 5):
         populate_inhabited(filename, n)
 
     # for c in inhabited[2]:
