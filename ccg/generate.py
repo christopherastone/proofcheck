@@ -183,6 +183,12 @@ def all_forward_applies(n):
                         # self.__graph[result].update([functor, argument])
                         results.append((result, rule, (functor, argument)))
                         #print(f"AFA applying {functor} to {argument}")
+                        #if cat1.closed:
+                            # If the functor was closed, all we care about
+                            # is finding *one* valid argument. Other
+                            # valid sub-categories just give us the same
+                            # value for result.
+                            #break
 
     return results
 
