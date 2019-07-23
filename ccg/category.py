@@ -8,7 +8,6 @@ import slash
 import semantic_types
 import semantics
 
-
 def extend_pmap(pmap1, map2):
     return pyrsistent.pmap(
         {a: b.subst(map2) for a, b in pmap1.items()}
@@ -50,10 +49,11 @@ class Attr:
 class Metavar:
     """An unknown value"""
 
-    __slots__ = ('__hint')
+    __slots__ = ('__hint', 'shape')
 
     def __init__(self, hint):
         self.__hint = hint
+        self.shape = None
 
     @property
     def hint(self):
@@ -149,13 +149,15 @@ class BaseCategory:
     """An atomic grammatical category, such as NP,
        with optional fixed attributes"""
 
-    __slots__ = ('__cat', '__attrs', '__semty', '__hash')
+    __slots__ = ('__cat', '__attrs', '__semty',
+                 '__hash', 'shape')
 
     def __init__(self, cat, semty, attrs=pyrsistent.m()):
         self.__cat = cat
         self.__attrs = attrs
         self.__semty = semty
         self.__hash = hash((cat, attrs))
+        self.shape = hash(cat)
         assert(not(isinstance(attr, str)) for attr in attrs.values())
 
     def __str__(self, mv_to_string=None):
@@ -239,10 +241,11 @@ class SingletonCategory:
     """A category containing a specific word(s) with
        no interesting semantics"""
 
-    __slots__ = ('__word')
+    __slots__ = ('__word', 'shape')
 
     def __init__(self, word):
         self.__word = word
+        self.shape = hash(word)
 
     def __str__(self, mv_to_string=None):
         return f'"{self.__word}"'
@@ -303,7 +306,8 @@ class SlashCategory:
     """A complex grammatical category,
        with a given codomain, domain, and slash"""
 
-    __slots__ = ('__slash', '__cod', '__dom', '__closed', '__hash')
+    __slots__ = ('__slash', '__cod', '__dom',
+                 '__closed', '__hash', 'shape')
 
     def __init__(self, cod, sl, dom):
         assert isinstance(sl, slash.Slash)
@@ -312,6 +316,16 @@ class SlashCategory:
         self.__dom = dom
         self.__closed = cod.closed and dom.closed
         self.__hash = hash((cod, sl, dom))
+        if cod.shape is None or dom.shape is None:
+            self.shape = None
+        else:
+            # Because of mode subtyping, we can't include the slash mode in
+            #  the shape hash. And because of UNDIRECTED slash directions, we
+            #  can't inlcude the direction either. (Experimentally, including
+            #  the direction would slightly help, but not enough to justify
+            #  the complexity of a separate ALLOW_UNDIRECTED_SLASHES flag
+            #  to specify whether we must ignore direction or not.
+            self.shape = hash((cod.shape, dom.shape))
 
     def __hash__(self):
         return self.__hash
@@ -353,7 +367,12 @@ class SlashCategory:
         return semantic_types.ArrowType(self.__dom.semty, self.__cod.semty)
 
     def __eq__(self, other, mvs_l=None, mvs_r=None):
-        """Checks for syntactic equality (not unifiability)"""
+        """Checks for alpha-equivalence (not unifiability)"""
+        if hash(self) != hash(other):
+            # We have arranged the hash function so that equal values
+            # have equal hashes.
+            return False
+
         if not self.__closed and mvs_l is None:
             assert mvs_r is None  # both defined or both None
             mvs_l = {}
@@ -367,6 +386,9 @@ class SlashCategory:
         if sub is None:
             # Short-circuit after failure in chained unifications.
             answer = None
+        elif self.shape != other.shape and \
+             self.shape is not None and other.shape is not None:
+             answer = None
         elif isinstance(other, Metavar):
             assert id(other) not in sub
             # XXX over-precise?
@@ -378,9 +400,9 @@ class SlashCategory:
                 sub = None
             # If the slashes match we need the other domain to be smaller
             # (contravariant) and this codomain to be smaller (codomain)
-            sub = self.__cod.sub_unify(other.__cod, sub)
-            sub = other.__dom.subst(sub).sub_unify(self.__dom.subst(sub), sub)
-            answer = sub
+            sub2 = self.__cod.sub_unify(other.__cod, sub)
+            sub2 = other.__dom.subst(sub2).sub_unify(self.__dom.subst(sub2), sub2)
+            answer = sub2
         else:
             answer = None
         return answer

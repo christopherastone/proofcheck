@@ -24,6 +24,8 @@ MAX_COMPOSITION_ORDER = 3
 DO_TYPERAISE = True
 NO_DOUBLE_TYPERAISE = True
 
+USE_PICKLES = False
+
 assert(MAX_COMPOSITION_ORDER >= 1)
 
 USE_CCGBANK_LEXICON = True
@@ -46,6 +48,7 @@ def pp_info(cats):
 # mapping from level number n to the set of
 #    categories inhabited by (1 or more) n-word phrase
 inhabited = {}
+hierarchies = {}
 lexicon_hash = -1
 
 
@@ -76,7 +79,6 @@ def reset(filename):
         type_raised += [x[0] for x in typeraise(cat, [])]
     inhabited1.update(type_raised)
 
-
     inhabited = {1: inhabited1}
 
     cat_names = [category.alpha_normalized_string(cat) for cat in inhabited1]
@@ -87,7 +89,7 @@ def reset(filename):
 
 
 def populate_inhabited(filename, n):
-    global inhabited
+    global inhabited, hierarchies
     global SKIP_NONNORMAL, NO_DOUBLE_TYPERAISE
     SKIP_NONNORMAL = False
     NO_DOUBLE_TYPERAISE = False
@@ -99,12 +101,14 @@ def populate_inhabited(filename, n):
         inhabited_n = inhabited[1]
     else:
         pickle_file = f'pickles/inhabited.{lexicon_hash}.{n}.out'
-        if os.path.isfile(pickle_file):
+        if USE_PICKLES and os.path.isfile(pickle_file):
             with open(pickle_file, 'rb') as f:
                 print("...recovering from pickle file...")
                 inhabited_n = pickle.load(f)
         else:
             inhabited_n = set()
+            for cat, _, _ in all_forward_applies(n):
+                inhabited_n.add(cat)
             for k in range(1, n):
                 cats1 = inhabited[k]
                 cats2 = inhabited[n-k]
@@ -112,8 +116,8 @@ def populate_inhabited(filename, n):
                     cat1 = cat1.refresh()
                     for cat2 in cats2:
                         delta = try_binary_rules(cat1, [], cat2, [])
-                        if cat2 != cat1:
-                            delta += try_binary_rules(cat2, [], cat1, [])
+                        # if cat2 != cat1:
+                        #    delta += try_binary_rules(cat2, [], cat1, [])
                         for cat, _, _ in delta:
                             inhabited_n.add(cat)
                 type_raised = []
@@ -129,6 +133,58 @@ def populate_inhabited(filename, n):
     inhabited[n] = inhabited_n
     print(f"inhabited({n}) done. Found {len(inhabited_n)} categories")
     print(pp_info(inhabited_n))
+
+    print(f"building hierarchy")
+    hierarchies[n] = make_hierarchy(inhabited_n)
+    print(f"done building hierarchy")
+
+
+VALID_FORWARD_APPLY_SLASHES = [
+    slash.Slash(slash.RIGHT, slash.APPLYONLY),
+    slash.Slash(slash.RIGHT, slash.ALLOWB),
+    slash.Slash(slash.RIGHT, slash.ALLOWBX),
+    slash.Slash(slash.RIGHT, slash.PHI),
+    slash.Slash(slash.RIGHT, slash.ANYRULE),
+    slash.Slash(slash.UNDIRECTED, slash.APPLYONLY),
+    slash.Slash(slash.UNDIRECTED, slash.ALLOWB),
+    slash.Slash(slash.UNDIRECTED, slash.ALLOWBX),
+    slash.Slash(slash.UNDIRECTED, slash.PHI),
+    slash.Slash(slash.UNDIRECTED, slash.ANYRULE)]
+
+
+def all_forward_applies(n):
+    global hierarchies
+    results = []
+
+    for k in range(1, n):
+        hierarchy_left = hierarchies[k]
+        hierarchy_right = hierarchies[n-k]
+
+        #print(f"AFA {len(hierarchy_left.all)} {len(hierarchy_right.all)}")
+        #print(f"    {hierarchy_left.has_slash.keys()}")
+        #print(f"    {hierarchy_right.has_slash.keys()}")
+        for sl1 in VALID_FORWARD_APPLY_SLASHES:
+            if sl1 not in hierarchy_left.has_slash.keys():
+                continue
+            #print(f"AFA sl1 = {sl1}")
+            for cat1 in hierarchy_left.has_slash[sl1].all:
+                if cat1.dom.shape is not None:
+                    cats2 = hierarchy_right.with_shape[cat1.dom.shape] + \
+                        hierarchy_right.with_shape[None]
+                else:
+                    cats2 = hierarchy_right.all
+                for cat2 in cats2:
+                    sub = cat2.sub_unify(cat1.dom)
+                    if sub is not None:
+                        functor = cat1.subst(sub)
+                        argument = cat2.subst(sub)
+                        result = functor.cod
+                        rule = '>'
+                        # self.__graph[result].update([functor, argument])
+                        results.append((result, rule, (functor, argument)))
+                        #print(f"AFA applying {functor} to {argument}")
+
+    return results
 
 
 def try_forward_apply(left, left_rules, right, right_rules):
@@ -391,12 +447,12 @@ def try_general_forward_compose(left, left_rules, right, right_rules,
 
 
 def try_binary_rules(left, left_rules, right, right_rules):
-    return (try_forward_apply(left, left_rules, right, right_rules) +
-            try_backward_apply(left, left_rules, right, right_rules) +
-            # try_forward_compose(left, left_rules, right, right_rules) +
-            try_backward_compose(left, left_rules, right, right_rules) +
-            try_general_forward_compose(left, left_rules, right, right_rules, MAX_COMPOSITION_ORDER) +
-            try_backwards_cross_compose(left, left_rules, right, right_rules))
+    return (  # try_forward_apply(left, left_rules, right, right_rules) +
+        try_backward_apply(left, left_rules, right, right_rules) +
+        # try_forward_compose(left, left_rules, right, right_rules) +
+        try_backward_compose(left, left_rules, right, right_rules) +
+        try_general_forward_compose(left, left_rules, right, right_rules, MAX_COMPOSITION_ORDER) +
+        try_backwards_cross_compose(left, left_rules, right, right_rules))
 
 
 def typeraise(cat, rules):
@@ -593,13 +649,44 @@ class CategoryEnumerator:
 """
 
 
+class Hierarchy:
+    def __init__(self, cat_orig_pairs):
+        self.all = list(orig for _, orig in cat_orig_pairs)
+
+        self.with_shape = collections.defaultdict(list)
+        for cat, orig in cat_orig_pairs:
+            self.with_shape[cat.shape].append(orig)
+
+        slash_pairs = [(cat, orig) for cat, orig in cat_orig_pairs
+                       if isinstance(cat, category.SlashCategory)]
+        partition = collections.defaultdict(list)
+        for cat, orig in slash_pairs:
+            partition[cat.slash].append((cat, orig))
+        assert(None not in partition.keys())
+
+        self.has_slash = {}
+        for sl, pairs in partition.items():
+            self.has_slash[sl] = SlashHierarchy(pairs)
+
+
+class SlashHierarchy:
+    def __init__(self, cat_orig_pairs):
+        self.left = Hierarchy((cat.cod, orig) for cat, orig in cat_orig_pairs)
+        self.right = Hierarchy((cat.dom, orig) for cat, orig in cat_orig_pairs)
+        self.all = [orig for _, orig in cat_orig_pairs]
+
+
+def make_hierarchy(categories):
+    return Hierarchy([(cat, cat) for cat in categories])
+
+
 def test_lexicon(filename):
 
-    for n in range(1, 10):
+    for n in range(1, 4):
         populate_inhabited(filename, n)
 
-    for c in inhabited[2]:
-        print(c)
+    # for c in inhabited[2]:
+    #     print(c)
 
     for n in range(1, len(inhabited)+1):
         print(f"{n} words : {len(inhabited[n])} categories")
