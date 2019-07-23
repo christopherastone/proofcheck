@@ -122,8 +122,6 @@ def populate_inhabited(filename, n):
                     cat1 = cat1.refresh()
                     for cat2 in cats2:
                         delta = try_binary_rules(cat1, [], cat2, [])
-                        # if cat2 != cat1:
-                        #    delta += try_binary_rules(cat2, [], cat1, [])
                         for cat, _, _ in delta:
                             inhabited_n.add(cat)
                 type_raised = []
@@ -138,7 +136,7 @@ def populate_inhabited(filename, n):
 
     inhabited[n] = inhabited_n
     print(f"inhabited({n}) done. Found {len(inhabited_n)} categories")
-    #print(pp_info(inhabited_n))
+    # print(pp_info(inhabited_n))
 
     print(f"building hierarchy")
     hierarchies[n] = make_hierarchy(inhabited_n)
@@ -146,7 +144,8 @@ def populate_inhabited(filename, n):
 
 
 VALID_FORWARD_APPLY_SLASHES = \
-  [sl for sl in slash.ALL_SLASHES if sl <= slash.RAPPLY]
+    [sl for sl in slash.ALL_SLASHES if sl <= slash.RAPPLY]
+
 
 def all_forward_applies(n):
     global hierarchies
@@ -174,18 +173,20 @@ def all_forward_applies(n):
                         rule = '>'
                         # self.__graph[result].update([functor, argument])
                         results.append((result, rule, (functor, argument)))
-                        #print(f"AFA applying {functor} to {argument}")
-                        #if cat1.closed:
-                            # If the functor was closed, all we care about
-                            # is finding *one* valid argument. Other
-                            # valid sub-categories just give us the same
-                            # value for result.
-                            #break
+                        # print(f"AFA applying {functor} to {argument}")
+                        # if cat1.closed:
+                        # If the functor was closed, all we care about
+                        # is finding *one* valid argument. Other
+                        # valid sub-categories just give us the same
+                        # value for result.
+                        # break
 
     return results
 
+
 VALID_BACKWARD_APPLY_SLASHES = \
-  [sl for sl in slash.ALL_SLASHES if sl <= slash.LAPPLY]
+    [sl for sl in slash.ALL_SLASHES if sl <= slash.LAPPLY]
+
 
 def all_backward_applies(n):
     global hierarchies
@@ -212,21 +213,23 @@ def all_backward_applies(n):
                         result = functor.cod
                         # self.__graph[result].update([functor, argument])
                         results.append((result, '<', (argument, functor)))
-                        #print(f"ABA passing {argument} to {functor}")
-                        #if cat2.closed:
-                            # If the functor was closed, all we care about
-                            # is finding *one* valid argument. Other
-                            # valid sub-categories just give us the same
-                            # value for result.
-                            #break
+                        # print(f"ABA passing {argument} to {functor}")
+                        # if cat2.closed:
+                        # If the functor was closed, all we care about
+                        # is finding *one* valid argument. Other
+                        # valid sub-categories just give us the same
+                        # value for result.
+                        # break
 
     return results
 
+
 VALID_FORWARD_COMPOSE_SLASHES = \
-  [sl for sl in slash.ALL_SLASHES if sl <= slash.RCOMPOSE]
+    [sl for sl in slash.ALL_SLASHES if sl <= slash.RCOMPOSE]
 
 VALID_BACKWARD_COMPOSE_SLASHES = \
-  [sl for sl in slash.ALL_SLASHES if sl <= slash.LCOMPOSE]
+    [sl for sl in slash.ALL_SLASHES if sl <= slash.LCOMPOSE]
+
 
 def all_forward_compositions(n):
     global hierarchies
@@ -244,15 +247,21 @@ def all_forward_compositions(n):
                 assert(common_shape is not None)
                 for sl2 in VALID_FORWARD_COMPOSE_SLASHES:
                     if sl2 in hierarchy_right.has_slash.keys():
-                        cats2 = hierarchy_right.has_slash[sl2].left.with_shape[common_shape]
+                        cats2 = hierarchy_right.has_slash[sl2] \
+                                  .left.with_shape[common_shape]
                         for cat2 in cats2:
                             sub = cat2.cod.sub_unify(cat1.dom)
                             if sub is not None:
                                 primary = cat1.subst(sub)
                                 secondary = cat2.subst(sub)
-                                composition = category.SlashCategory(primary.cod, secondary.slash, secondary.dom)
-                                results.append((composition, '>B', (primary, secondary)))
-                                #print(f"B1  {composition}  -->  {primary} {secondary}")
+                                composition = category.SlashCategory(
+                                      primary.cod,
+                                      secondary.slash,
+                                      secondary.dom)
+                                results.append(
+                                    (composition, '>B', (primary, secondary)))
+                                # print(f"B1  {composition}  -->  "
+                                #       f"{primary} {secondary}")
                     if sl2 in hierarchy_right.left.has_slash.keys():
                         cats2 = hierarchy_right.left.has_slash[sl2].left.with_shape[common_shape]
                         for cat2 in cats2:
@@ -261,9 +270,11 @@ def all_forward_compositions(n):
                                 primary = cat1.subst(sub)
                                 secondary = cat2.subst(sub)
                                 composition = category.SlashCategory(
-                                    category.SlashCategory(primary.cod, secondary.cod.slash, secondary.cod.dom),
+                                    category.SlashCategory(
+                                        primary.cod, secondary.cod.slash, secondary.cod.dom),
                                     secondary.slash, secondary.dom)
-                                results.append((composition, '>B2', (primary, secondary)))
+                                results.append(
+                                    (composition, '>B2', (primary, secondary)))
                     if sl2 in hierarchy_right.left.left.has_slash.keys():
                         cats2 = hierarchy_right.left.left.has_slash[sl2].left.with_shape[common_shape]
                         for cat2 in cats2:
@@ -273,14 +284,15 @@ def all_forward_compositions(n):
                                 secondary = cat2.subst(sub)
                                 composition = \
                                     category.SlashCategory(
-                                      category.SlashCategory(
-                                        category.SlashCategory(primary.cod, secondary.cod.cod.slash, secondary.cod.cod.dom),
-                                        secondary.cod.slash, secondary.cod.dom),
-                                    secondary.slash, secondary.dom)
-                                results.append((composition, '>B2', (primary, secondary)))
+                                        category.SlashCategory(
+                                            category.SlashCategory(
+                                                primary.cod, secondary.cod.cod.slash, secondary.cod.cod.dom),
+                                            secondary.cod.slash, secondary.cod.dom),
+                                        secondary.slash, secondary.dom)
+                                results.append(
+                                    (composition, '>B2', (primary, secondary)))
 
     return results
-
 
 
 def try_backward_compose(left, left_rules, right, right_rules):
@@ -310,11 +322,12 @@ def try_backward_compose(left, left_rules, right, right_rules):
 
     return []
 
+
 VALID_FORWARD_CROSS_COMPOSE_SLASHES = \
-  [sl for sl in slash.ALL_SLASHES if sl <= slash.RCROSS]
+    [sl for sl in slash.ALL_SLASHES if sl <= slash.RCROSS]
 
 VALID_BACKWARD_CROSS_COMPOSE_SLASHES = \
-  [sl for sl in slash.ALL_SLASHES if sl <= slash.LCROSS]
+    [sl for sl in slash.ALL_SLASHES if sl <= slash.LCROSS]
 
 
 def all_backwards_cross_compose(n):
@@ -340,9 +353,12 @@ def all_backwards_cross_compose(n):
                             if sub is not None:
                                 primary = cat2.subst(sub)
                                 secondary = cat1.subst(sub)
-                                composition = category.SlashCategory(primary.cod, secondary.slash, secondary.dom)
-                                results.append((composition, '>Bx', (primary, secondary)))
-                                print(f"<Bx  {composition}  -->  {secondary} {primary}")
+                                composition = category.SlashCategory(
+                                    primary.cod, secondary.slash, secondary.dom)
+                                results.append(
+                                    (composition, '>Bx', (primary, secondary)))
+                                print(
+                                    f"<Bx  {composition}  -->  {secondary} {primary}")
 
     return results
 
@@ -530,9 +546,9 @@ def try_binary_rules(left, left_rules, right, right_rules):
         # try_backward_apply(left, left_rules, right, right_rules) +
         # try_forward_compose(left, left_rules, right, right_rules) +
         try_backward_compose(left, left_rules, right, right_rules)
-        #try_general_forward_compose(left, left_rules, right, right_rules, MAX_COMPOSITION_ORDER, []) +
+        # try_general_forward_compose(left, left_rules, right, right_rules, MAX_COMPOSITION_ORDER, []) +
         #try_backwards_cross_compose(left, left_rules, right, right_rules)
-        )
+    )
 
 
 def typeraise(cat, rules):
@@ -754,9 +770,11 @@ class Hierarchy:
 
         if slash_pairs != []:
             # print(f"building sub-filter on left/domain {id(self)}")
-            self.__left = Hierarchy([(cat.cod, orig) for cat, orig in slash_pairs])
+            self.__left = Hierarchy([(cat.cod, orig)
+                                     for cat, orig in slash_pairs])
             # print(f"building sub-filter on right/codomain {id(self)}")
-            self.__right = Hierarchy([(cat.dom, orig) for cat, orig in slash_pairs])
+            self.__right = Hierarchy([(cat.dom, orig)
+                                      for cat, orig in slash_pairs])
         else:
             self.__left = None
             self.__right = None
