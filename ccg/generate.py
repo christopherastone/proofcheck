@@ -109,6 +109,8 @@ def populate_inhabited(filename, n):
             inhabited_n = set()
             for cat, _, _ in all_forward_applies(n):
                 inhabited_n.add(cat)
+            for cat, _, _ in all_backward_applies(n):
+                inhabited_n.add(cat)
             for k in range(1, n):
                 cats1 = inhabited[k]
                 cats2 = inhabited[n-k]
@@ -139,18 +141,8 @@ def populate_inhabited(filename, n):
     print(f"done building hierarchy")
 
 
-VALID_FORWARD_APPLY_SLASHES = [
-    slash.Slash(slash.RIGHT, slash.APPLYONLY),
-    slash.Slash(slash.RIGHT, slash.ALLOWB),
-    slash.Slash(slash.RIGHT, slash.ALLOWBX),
-    slash.Slash(slash.RIGHT, slash.PHI),
-    slash.Slash(slash.RIGHT, slash.ANYRULE),
-    slash.Slash(slash.UNDIRECTED, slash.APPLYONLY),
-    slash.Slash(slash.UNDIRECTED, slash.ALLOWB),
-    slash.Slash(slash.UNDIRECTED, slash.ALLOWBX),
-    slash.Slash(slash.UNDIRECTED, slash.PHI),
-    slash.Slash(slash.UNDIRECTED, slash.ANYRULE)]
-
+VALID_FORWARD_APPLY_SLASHES = \
+  [sl for sl in slash.ALL_SLASHES if sl <= slash.RAPPLY]
 
 def all_forward_applies(n):
     global hierarchies
@@ -160,13 +152,9 @@ def all_forward_applies(n):
         hierarchy_left = hierarchies[k]
         hierarchy_right = hierarchies[n-k]
 
-        #print(f"AFA {len(hierarchy_left.all)} {len(hierarchy_right.all)}")
-        #print(f"    {hierarchy_left.has_slash.keys()}")
-        #print(f"    {hierarchy_right.has_slash.keys()}")
         for sl1 in VALID_FORWARD_APPLY_SLASHES:
             if sl1 not in hierarchy_left.has_slash.keys():
                 continue
-            #print(f"AFA sl1 = {sl1}")
             for cat1 in hierarchy_left.has_slash[sl1].all:
                 if cat1.dom.shape is not None:
                     cats2 = hierarchy_right.with_shape[cat1.dom.shape] + \
@@ -192,64 +180,49 @@ def all_forward_applies(n):
 
     return results
 
+VALID_BACKWARD_APPLY_SLASHES = \
+  [sl for sl in slash.ALL_SLASHES if sl <= slash.LAPPLY]
 
-def try_forward_apply(left, left_rules, right, right_rules):
-    """Consider the given combination of categories to see if
-        forward application is possible"""
-    if isinstance(left, category.SlashCategory) and \
-            left.slash <= slash.RAPPLY:
-        # Possible instance of >
-        if SKIP_NONNORMAL and all(
-                rule.startswith('>T') or
-                rule.startswith('>B') for rule in left_rules):
-            return []
-        sub = right.sub_unify(left.dom)
-        if sub is not None:
-            functor = left.subst(sub)
-            argument = right.subst(sub)
-            result = functor.cod.subst(sub)
-            rule = '>'
+def all_backward_applies(n):
+    global hierarchies
+    results = []
 
-            if DEBUG:
-                print(f"    DEBUG trying {left} {right}")
-                print(f"          {functor} {argument} {rule}")
-                print(f"          {left_rules} {right_rules}")
-            # self.__graph[result].update([functor, argument])
-            return [(result, rule, (functor, argument))]
+    for k in range(1, n):
+        hierarchy_left = hierarchies[k]
+        hierarchy_right = hierarchies[n-k]
 
-    return []
+        for sl2 in VALID_BACKWARD_APPLY_SLASHES:
+            if sl2 not in hierarchy_right.has_slash.keys():
+                continue
+            for cat2 in hierarchy_right.has_slash[sl2].all:
+                if cat2.dom.shape is not None:
+                    cats1 = hierarchy_left.with_shape[cat2.dom.shape] + \
+                        hierarchy_left.with_shape[None]
+                else:
+                    cats1 = hierarchy_left.all
+                for cat1 in cats1:
+                    sub = cat1.sub_unify(cat2.dom)
+                    if sub is not None:
+                        functor = cat2.subst(sub)
+                        argument = cat1.subst(sub)
+                        result = functor.cod
+                        # self.__graph[result].update([functor, argument])
+                        results.append((result, '<', (argument, functor)))
+                        #print(f"ABA passing {argument} to {functor}")
+                        #if cat2.closed:
+                            # If the functor was closed, all we care about
+                            # is finding *one* valid argument. Other
+                            # valid sub-categories just give us the same
+                            # value for result.
+                            #break
 
+    return results
 
-def try_backward_apply(left, left_rules, right, right_rules):
-    """Consider the given combination of categories to see if
-        backward application is possible"""
-    if isinstance(right, category.SlashCategory) and \
-            right.slash <= slash.LAPPLY:
-        # possible instance of <
-        if SKIP_NONNORMAL and all(
-                rule.startswith('<T') or
-                rule.startswith('<B') for rule in right_rules):
-            if DEBUG:
-                print(
-                    f"< rule: skipping {left} {left_rules} {right} {right_rules}")
-            return []
-        # print(f'trying to unify {left} <= {right.dom}')
-        sub = left.sub_unify(right.dom)
-        # print(sub is not None)
-        if sub is not None:
-            functor = right.subst(sub)
-            argument = left.subst(sub)
-            result = functor.cod.subst(sub)
-            rule = '<'
-            if DEBUG:
-                print(f"    DEBUG trying {left} {right} <")
-                print(f"          {argument} {functor}")
-                print(f"          {left_rules} {right_rules}")
+VALID_FORWARD_COMPOSE_SLASHES = \
+  [sl for sl in slash.ALL_SLASHES if sl <= slash.RCOMPOSE]
 
-            # self.__graph[result].update([functor, argument])
-            return [(result, rule, (argument, functor))]
-
-    return []
+VALID_BACKWARD_COMPOSE_SLASHES = \
+  [sl for sl in slash.ALL_SLASHES if sl <= slash.LCOMPOSE]
 
 
 def try_backward_compose(left, left_rules, right, right_rules):
@@ -454,7 +427,7 @@ def try_general_forward_compose(left, left_rules, right, right_rules,
 
 def try_binary_rules(left, left_rules, right, right_rules):
     return (  # try_forward_apply(left, left_rules, right, right_rules) +
-        try_backward_apply(left, left_rules, right, right_rules) +
+        # try_backward_apply(left, left_rules, right, right_rules) +
         # try_forward_compose(left, left_rules, right, right_rules) +
         try_backward_compose(left, left_rules, right, right_rules) +
         try_general_forward_compose(left, left_rules, right, right_rules, MAX_COMPOSITION_ORDER) +

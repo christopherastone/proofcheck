@@ -8,6 +8,8 @@ LEFT = '\\'
 RIGHT = '/'
 UNDIRECTED = "|"
 
+ALL_DIRECTIONS = [LEFT, RIGHT, UNDIRECTED]
+
 # def invert(dir):
 #     """return the opposite of the given direction"""
 #     if dir == LEFT:
@@ -27,6 +29,8 @@ ALLOWB = "o"
 ALLOWBX = "x"
 ANYRULE = "."
 PHI = "Φ"
+
+ALL_MODES = [INACTIVE, APPLYONLY, ALLOWB, ALLOWBX, ANYRULE, PHI]
 
 modes = lattice.FiniteLattice([
     (ANYRULE, ALLOWB),
@@ -80,6 +84,10 @@ class Slash:
         return (  # isinstance(other, Slash) and
             (self.__dir == other.__dir or self.__dir == UNDIRECTED) and
             (self.__mode == other.__mode or modes.lt(self.__mode, other.__mode)))
+
+
+ALL_SLASHES = [Slash(dir, mode) for dir in ALL_DIRECTIONS
+               for mode in ALL_MODES]
 
 
 def mk_rslash(mode):
