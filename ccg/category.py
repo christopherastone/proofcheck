@@ -36,7 +36,7 @@ class Attr:
     def sub_unify(self, other, sub=pyrsistent.m()):
         if sub is None:
             # Short-circuit after failure in chained unifications.
-            answer = None
+            return None
         elif isinstance(other, Metavar):
             assert id(other) not in sub
             return extend_pmap(sub, {id(other): self})
@@ -223,7 +223,7 @@ class BaseCategory:
             for k, v in other.__attrs.items():
                 if k not in self.__attrs.keys():
                     return None
-                sub = v.sub_unify(other.__attrs[k], sub)
+                sub = v.sub_unify(self.__attrs[k], sub)
 
             return sub
         else:
@@ -355,8 +355,8 @@ class SlashCategory:
         answer = f'{self.__cod.__str__(mv_to_string)}' \
             f'{self.__slash}' \
                  f'{self.__dom.with_parens(mv_to_string)}'
-        if len(answer) > 35 and mv_to_string is None:
-            answer = "..."
+        # if len(answer) > 35 and mv_to_string is None:
+        #     answer = "..."
         return answer
 
     def with_parens(self, mv_to_string=None):
