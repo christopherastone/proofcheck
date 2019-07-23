@@ -7,8 +7,7 @@ NP :: e
 PP :: e
 N :: e
 
-a : S/Y/Z
-b : Y/W
-c : Z
+a : Y/Z
+b : X\Y
 
-1. "a b" 
+1. "a b"

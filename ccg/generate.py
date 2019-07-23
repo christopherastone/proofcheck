@@ -113,6 +113,8 @@ def populate_inhabited(filename, n):
                 inhabited_n.add(cat)
             for cat, _, _ in all_forward_compositions(n):
                 inhabited_n.add(cat)
+            for cat, _, _ in all_backwards_cross_compose(n):
+                inhabited_n.add(cat)
             for k in range(1, n):
                 cats1 = inhabited[k]
                 cats2 = inhabited[n-k]
@@ -276,17 +278,10 @@ def all_forward_compositions(n):
                                         secondary.cod.slash, secondary.cod.dom),
                                     secondary.slash, secondary.dom)
                                 results.append((composition, '>B2', (primary, secondary)))
-                            # sub = cat2.cod.sub_unify(cat1.dom)
-                            # if sub is not None:
-                            #     primary = cat1.subst(sub)
-                            #     secondary = cat2.subst(sub)
-                            #     composition = category.SlashCategory(primary.cod, secondary.slash, secondary.dom)
-                            #     results.append((composition, '>B', (primary, secondary)))
-                            #     #print(f"B1  {composition}  -->  {primary} {secondary}")
-
 
     return results
-                        
+
+
 
 def try_backward_compose(left, left_rules, right, right_rules):
     """Consider the given combination of categories to see if
@@ -314,6 +309,42 @@ def try_backward_compose(left, left_rules, right, right_rules):
             return [(composition, rule, (secondary, primary))]
 
     return []
+
+VALID_FORWARD_CROSS_COMPOSE_SLASHES = \
+  [sl for sl in slash.ALL_SLASHES if sl <= slash.RCROSS]
+
+VALID_BACKWARD_CROSS_COMPOSE_SLASHES = \
+  [sl for sl in slash.ALL_SLASHES if sl <= slash.LCROSS]
+
+
+def all_backwards_cross_compose(n):
+    global hierarchies
+    results = []
+
+    for k in range(1, n):
+        hierarchy_left = hierarchies[k]
+        hierarchy_right = hierarchies[n-k]
+
+        for sl1 in VALID_FORWARD_CROSS_COMPOSE_SLASHES:
+            if sl1 not in hierarchy_left.has_slash.keys():
+                continue
+            for cat1 in hierarchy_left.has_slash[sl1].all:
+                common_shape = cat1.cod.shape
+                assert(common_shape is not None)
+                for sl2 in VALID_BACKWARD_CROSS_COMPOSE_SLASHES:
+                    if sl2 in hierarchy_right.has_slash.keys():
+                        cats2 = hierarchy_right.has_slash[sl2]. \
+                            right.with_shape[common_shape]
+                        for cat2 in cats2:
+                            sub = cat1.cod.sub_unify(cat2.dom)
+                            if sub is not None:
+                                primary = cat2.subst(sub)
+                                secondary = cat1.subst(sub)
+                                composition = category.SlashCategory(primary.cod, secondary.slash, secondary.dom)
+                                results.append((composition, '>Bx', (primary, secondary)))
+                                print(f"<Bx  {composition}  -->  {secondary} {primary}")
+
+    return results
 
 
 def try_backwards_cross_compose(left, left_rules, right, right_rules):
@@ -498,9 +529,10 @@ def try_binary_rules(left, left_rules, right, right_rules):
     return (  # try_forward_apply(left, left_rules, right, right_rules) +
         # try_backward_apply(left, left_rules, right, right_rules) +
         # try_forward_compose(left, left_rules, right, right_rules) +
-        try_backward_compose(left, left_rules, right, right_rules) +
+        try_backward_compose(left, left_rules, right, right_rules)
         #try_general_forward_compose(left, left_rules, right, right_rules, MAX_COMPOSITION_ORDER, []) +
-        try_backwards_cross_compose(left, left_rules, right, right_rules))
+        #try_backwards_cross_compose(left, left_rules, right, right_rules)
+        )
 
 
 def typeraise(cat, rules):
@@ -720,7 +752,7 @@ class Hierarchy:
                 # print(f"building sub-filter for those with slash {sl} {id(self)}")
                 self.has_slash[sl] = Hierarchy(pairs, False)
 
-        if slash_pairs != []:          
+        if slash_pairs != []:
             # print(f"building sub-filter on left/domain {id(self)}")
             self.__left = Hierarchy([(cat.cod, orig) for cat, orig in slash_pairs])
             # print(f"building sub-filter on right/codomain {id(self)}")
