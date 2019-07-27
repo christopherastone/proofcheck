@@ -11,6 +11,7 @@ import pickle
 import pyrsistent
 import random
 import re
+import semantic_types
 import slash
 import sys
 import zlib
@@ -46,8 +47,9 @@ def pp_info(cats):
     return "  ".join(strs)
 
 
-def make_hierarchy(categories):
-    return catset.CatSet([(cat, cat) for cat in categories])
+def make_hierarchy(cat_to_rules):
+    return catset.CatSet([(cat, cat, rules)
+                          for cat, rules in cat_to_rules.items()])
 
 
 # mapping from level number n to the set of
@@ -60,14 +62,14 @@ lexicon_hash = -1
 def reset(filename):
     global inhabited, lexicon_hash
 
-    inhabited1 = set()
+    inhabited1 = collections.defaultdict(set)
     if USE_CCGBANK_LEXICON:
         cat_dict = ccgbank.process_lexicon(
             'data/ccgbank_1_1/data/LEX/CCGbank.00-24.lexicon', 50)
         for s in cat_dict.keys():
             cat = catparser.catparser.parse(s)
             if cat is not None:
-                inhabited1.add(cat)
+                inhabited1[cat].add('LEX')
             else:
                 print("oops: ", s)
     else:
@@ -75,18 +77,20 @@ def reset(filename):
         lexicon = catparser.do_parses(lexicon_data)[0]
         for infos in lexicon.values():
             for cat, _ in infos:
-                inhabited1.add(cat)
+                inhabited1[cat].add('LEX')
 
     type_raised = []
-    for cat in inhabited1:
-        if not cat.closed:
-            continue
-        type_raised += [x[0] for x in typeraise(cat, [])]
-    inhabited1.update(type_raised)
+    for cat in inhabited1.keys():
+        # if not cat.closed:
+        #    continue
+        type_raised += typeraise(cat, [])
+    for cat, rule, _ in type_raised:
+        inhabited1[cat].add(rule)
 
     inhabited = {1: inhabited1}
 
-    cat_names = [category.alpha_normalized_string(cat) for cat in inhabited1]
+    cat_names = [category.alpha_normalized_string(cat)
+                 for cat in inhabited1.keys()]
     cat_names.sort()
     print(cat_names)
     lexicon_hash = zlib.adler32(";".join(cat_names).encode('utf8'))
@@ -111,30 +115,32 @@ def populate_inhabited(filename, n):
                 print("...recovering from pickle file...")
                 inhabited_n = pickle.load(f)
         else:
-            inhabited_n = set()
-            for cat, _, _ in all_forward_applies(n):
-                inhabited_n.add(cat)
-            for cat, _, _ in all_backward_applies(n):
-                inhabited_n.add(cat)
-            for cat, _, _ in all_forward_compositions(n):
-                inhabited_n.add(cat)
-            for cat, _, _ in all_backwards_cross_compose(n):
-                inhabited_n.add(cat)
+            inhabited_n = collections.defaultdict(set)
+            for cat, rule, how in all_forward_applies(n):
+                #print(cat, rule, [str(x) for x in how])
+                inhabited_n[cat].add(rule)
+            for cat, rule, _ in all_backward_applies(n):
+                inhabited_n[cat].add(rule)
+            for cat, rule, _ in all_forward_compositions(n):
+                inhabited_n[cat].add(rule)
+            for cat, rule, _ in all_backwards_cross_compose(n):
+                inhabited_n[cat].add(rule)
             for k in range(1, n):
                 cats1 = inhabited[k]
                 cats2 = inhabited[n-k]
-                for cat1 in cats1:
+                for cat1 in cats1.keys():
                     cat1 = cat1.refresh()
-                    for cat2 in cats2:
+                    for cat2 in cats2.keys():
                         delta = try_binary_rules(cat1, [], cat2, [])
-                        for cat, _, _ in delta:
-                            inhabited_n.add(cat)
+                        for cat, rule, _ in delta:
+                            inhabited_n[cat].add(rule)
                 type_raised = []
-                for cat in inhabited_n:
-                    if not cat.closed:
-                        continue
-                    type_raised += [x[0] for x in typeraise(cat, [])]
-                inhabited_n.update(type_raised)
+                for cat in inhabited_n.keys():
+                    # if not cat.closed:
+                    #    continue
+                    type_raised += typeraise(cat, [])
+                for cat, rule, _ in type_raised:
+                    inhabited_n[cat].add(rule)
             os.makedirs('pickles', exist_ok=True)
             with open(pickle_file, 'wb') as f:
                 pickle.dump(inhabited_n, f)
@@ -163,10 +169,10 @@ def all_forward_applies(n):
         for sl1 in VALID_FORWARD_APPLY_SLASHES:
             if sl1 not in hierarchy_left.has_slash.keys():
                 continue
-            for cat1 in hierarchy_left.has_slash[sl1].all:
+            for cat1 in hierarchy_left.has_slash[sl1].without_rules({'>T'}).all:
                 if cat1.dom.shape is not None:
-                    cats2 = hierarchy_right.with_shape[cat1.dom.shape] + \
-                        hierarchy_right.with_shape[None]
+                    cats2 = hierarchy_right.with_shape[cat1.dom.shape].all + \
+                        hierarchy_right.with_shape[None].all
                 else:
                     cats2 = hierarchy_right.all
                 for cat2 in cats2:
@@ -204,10 +210,10 @@ def all_backward_applies(n):
         for sl2 in VALID_BACKWARD_APPLY_SLASHES:
             if sl2 not in hierarchy_right.has_slash.keys():
                 continue
-            for cat2 in hierarchy_right.has_slash[sl2].all:
+            for cat2 in hierarchy_right.has_slash[sl2].without_rules({'<T'}).all:
                 if cat2.dom.shape is not None:
-                    cats1 = hierarchy_left.with_shape[cat2.dom.shape] + \
-                        hierarchy_left.with_shape[None]
+                    cats1 = hierarchy_left.with_shape[cat2.dom.shape].all + \
+                        hierarchy_left.with_shape[None].all
                 else:
                     cats1 = hierarchy_left.all
                 for cat1 in cats1:
@@ -253,7 +259,7 @@ def all_forward_compositions(n):
                 for sl2 in VALID_FORWARD_COMPOSE_SLASHES:
                     if sl2 in hierarchy_right.has_slash.keys():
                         cats2 = hierarchy_right.has_slash[sl2] \
-                            .left.with_shape[common_shape]
+                            .left.with_shape[common_shape].all
                         for cat2 in cats2:
                             sub = cat2.cod.sub_unify(cat1.dom)
                             if sub is not None:
@@ -268,7 +274,7 @@ def all_forward_compositions(n):
                                 # print(f"B1  {composition}  -->  "
                                 #       f"{primary} {secondary}")
                     if sl2 in hierarchy_right.left.has_slash.keys():
-                        cats2 = hierarchy_right.left.has_slash[sl2].left.with_shape[common_shape]
+                        cats2 = hierarchy_right.left.has_slash[sl2].left.with_shape[common_shape].all
                         for cat2 in cats2:
                             sub = cat2.cod.cod.sub_unify(cat1.dom)
                             if sub is not None:
@@ -281,7 +287,8 @@ def all_forward_compositions(n):
                                 results.append(
                                     (composition, '>B2', (primary, secondary)))
                     if sl2 in hierarchy_right.left.left.has_slash.keys():
-                        cats2 = hierarchy_right.left.left.has_slash[sl2].left.with_shape[common_shape]
+                        cats2 = hierarchy_right.left.left.has_slash[sl2] \
+                            .left.with_shape[common_shape].all
                         for cat2 in cats2:
                             sub = cat2.cod.cod.cod.sub_unify(cat1.dom)
                             if sub is not None:
@@ -346,13 +353,13 @@ def all_backwards_cross_compose(n):
         for sl1 in VALID_FORWARD_CROSS_COMPOSE_SLASHES:
             if sl1 not in hierarchy_left.has_slash.keys():
                 continue
-            for cat1 in hierarchy_left.has_slash[sl1].all:
+            for cat1 in hierarchy_left.has_slash[sl1].without_rules({'>T'}).all:
                 common_shape = cat1.cod.shape
                 assert(common_shape is not None)
                 for sl2 in VALID_BACKWARD_CROSS_COMPOSE_SLASHES:
                     if sl2 in hierarchy_right.has_slash.keys():
                         cats2 = hierarchy_right.has_slash[sl2]. \
-                            right.with_shape[common_shape]
+                            right.with_shape[common_shape].all
                         for cat2 in cats2:
                             sub = cat1.cod.sub_unify(cat2.dom)
                             if sub is not None:
@@ -361,7 +368,7 @@ def all_backwards_cross_compose(n):
                                 composition = category.SlashCategory(
                                     primary.cod, secondary.slash, secondary.dom)
                                 results.append(
-                                    (composition, '>Bx', (primary, secondary)))
+                                    (composition, '<Bx', (primary, secondary)))
                                 # print(
                                 #     f"<Bx  {composition}  -->  {secondary} {primary}")
 
@@ -566,26 +573,30 @@ def typeraise(cat, rules):
         return []
 
     def mk_fwd(t):
-        return category.SlashCategory(
+        return (category.SlashCategory(
             t, slash.RSLASH, category.SlashCategory(
-                t, slash.LSLASH, cat))
+                t, slash.LSLASH, cat)), ">T", [t])
 
     def mk_back(t):
-        return category.SlashCategory(
+        return (category.SlashCategory(
             t, slash.LSLASH, category.SlashCategory(
-                t, slash.RSLASH, cat))
+                t, slash.RSLASH, cat)), "<T", [t])
 
-    generic_S = category.BaseCategory('S',
+    generic_S = category.BaseCategory('S', semantic_types.t,
                                       pyrsistent.m(it=category.Metavar('X')))
+    assert(not generic_S.closed)
 
-    if cat.sub_unify(category.NP):
-        return [mk_fwd(generic_S), mk_back(generic_S),
+    if cat.sub_unify(category.NP) is not None:
+        answer= [mk_fwd(generic_S), mk_back(generic_S),
                 mk_fwd(category.SlashCategory(
                     generic_S, slash.LSLASH, category.NP)),
                 mk_fwd(category.SlashCategory(
                     generic_S, slash.LSLASH, category.NP))]
+        assert(all(not x[0].closed for x in answer))
 
-    if cat.sub_unify(category.PP):
+        return answer
+
+    if cat.sub_unify(category.PP) is not None:
         return [mk_fwd(category.S), mk_back(category.S)]
 
     return []
@@ -759,7 +770,10 @@ def test_lexicon(filename):
     #     print(c)
 
     for n in range(1, len(inhabited)+1):
-        print(f"{n} words : {len(inhabited[n])} categories")
+        all_rules = set()
+        for rules in inhabited[n].values():
+            all_rules.update(rules)
+        print(f"{n} words : {len(inhabited[n])} categories via {all_rules}")
 
 
 if __name__ == '__main__':

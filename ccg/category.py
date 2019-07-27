@@ -96,8 +96,6 @@ class Metavar:
             # an empty dictionary, discovered neither was
             # present, and updated the dictionary,
             # and then threw it away.
-            assert(False)  # I'm not sure that two isolated Metavars
-                         # should default to being equal...
             return True
 
         id_self = id(self)
@@ -193,7 +191,7 @@ class BaseCategory:
 
     @property
     def closed(self):
-        return True
+        return not any(isinstance(a, Metavar) for a in self.__attrs.values())
 
     def with_parens(self, mv_to_string=None):
         return self.__str__(mv_to_string)
