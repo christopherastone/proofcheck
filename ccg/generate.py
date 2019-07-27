@@ -1,5 +1,6 @@
 import catparser
 import category
+import catset
 import ccgbank
 import collections
 import functools
@@ -43,6 +44,10 @@ def pp_info(cats):
     strs = [category.alpha_normalized_string(cat) for cat in cats]
     strs.sort(key=lambda s: (len(s), s))
     return "  ".join(strs)
+
+
+def make_hierarchy(categories):
+    return catset.CatSet([(cat, cat) for cat in categories])
 
 
 # mapping from level number n to the set of
@@ -248,16 +253,16 @@ def all_forward_compositions(n):
                 for sl2 in VALID_FORWARD_COMPOSE_SLASHES:
                     if sl2 in hierarchy_right.has_slash.keys():
                         cats2 = hierarchy_right.has_slash[sl2] \
-                                  .left.with_shape[common_shape]
+                            .left.with_shape[common_shape]
                         for cat2 in cats2:
                             sub = cat2.cod.sub_unify(cat1.dom)
                             if sub is not None:
                                 primary = cat1.subst(sub)
                                 secondary = cat2.subst(sub)
                                 composition = category.SlashCategory(
-                                      primary.cod,
-                                      secondary.slash,
-                                      secondary.dom)
+                                    primary.cod,
+                                    secondary.slash,
+                                    secondary.dom)
                                 results.append(
                                     (composition, '>B', (primary, secondary)))
                                 # print(f"B1  {composition}  -->  "
@@ -357,8 +362,8 @@ def all_backwards_cross_compose(n):
                                     primary.cod, secondary.slash, secondary.dom)
                                 results.append(
                                     (composition, '>Bx', (primary, secondary)))
-                                print(
-                                    f"<Bx  {composition}  -->  {secondary} {primary}")
+                                # print(
+                                #     f"<Bx  {composition}  -->  {secondary} {primary}")
 
     return results
 
@@ -743,59 +748,6 @@ class CategoryEnumerator:
             print(cat)
         print(len(all_visited))
 """
-
-
-class Hierarchy:
-    def __init__(self, cat_orig_pairs, unknown_slash=True):
-        self.all = list(orig for _, orig in cat_orig_pairs)
-
-        # print(f"__init__ {id(self)} {[str(l) + ' ' + str(r) for l,r in cat_orig_pairs]}  {unknown_slash}")
-
-        self.with_shape = collections.defaultdict(list)
-        for cat, orig in cat_orig_pairs:
-            self.with_shape[cat.shape].append(orig)
-
-        slash_pairs = [(cat, orig) for cat, orig in cat_orig_pairs
-                       if isinstance(cat, category.SlashCategory)]
-        partition = collections.defaultdict(list)
-        for cat, orig in slash_pairs:
-            partition[cat.slash].append((cat, orig))
-        assert(None not in partition.keys())
-
-        self.has_slash = {}
-        if unknown_slash:
-            for sl, pairs in partition.items():
-                # print(f"building sub-filter for those with slash {sl} {id(self)}")
-                self.has_slash[sl] = Hierarchy(pairs, False)
-
-        if slash_pairs != []:
-            # print(f"building sub-filter on left/domain {id(self)}")
-            self.__left = Hierarchy([(cat.cod, orig)
-                                     for cat, orig in slash_pairs])
-            # print(f"building sub-filter on right/codomain {id(self)}")
-            self.__right = Hierarchy([(cat.dom, orig)
-                                      for cat, orig in slash_pairs])
-        else:
-            self.__left = None
-            self.__right = None
-
-    @property
-    def left(self):
-        if self.__left is None:
-            return Hierarchy([])
-        else:
-            return self.__left
-
-    @property
-    def right(self):
-        if self.__right is None:
-            return Hierarchy([])
-        else:
-            return self.__right
-
-
-def make_hierarchy(categories):
-    return Hierarchy([(cat, cat) for cat in categories])
 
 
 def test_lexicon(filename):
