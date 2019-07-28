@@ -154,10 +154,6 @@ def populate_inhabited(filename, n):
     print(f"done building hierarchy")
 
 
-VALID_FORWARD_APPLY_SLASHES = \
-    [sl for sl in slash.ALL_SLASHES if sl <= slash.RAPPLY]
-
-
 def all_forward_applies(n):
     global hierarchies
     results = []
@@ -166,37 +162,30 @@ def all_forward_applies(n):
         hierarchy_left = hierarchies[k]
         hierarchy_right = hierarchies[n-k]
 
-        for sl1 in VALID_FORWARD_APPLY_SLASHES:
-            if sl1 not in hierarchy_left.has_slash.keys():
-                continue
-            for cat1 in hierarchy_left.has_slash[sl1].without_rules({'>T'}).all:
-                if cat1.dom.shape is not None:
-                    cats2 = hierarchy_right.with_shape[cat1.dom.shape].all + \
-                        hierarchy_right.with_shape[None].all
-                else:
-                    cats2 = hierarchy_right.all
-                for cat2 in cats2:
-                    sub = cat2.sub_unify(cat1.dom)
-                    if sub is not None:
-                        functor = cat1.subst(sub)
-                        argument = cat2.subst(sub)
-                        result = functor.cod
-                        rule = '>'
-                        # self.__graph[result].update([functor, argument])
-                        results.append((result, rule, (functor, argument)))
-                        # print(f"AFA applying {functor} to {argument}")
-                        # if cat1.closed:
-                        # If the functor was closed, all we care about
-                        # is finding *one* valid argument. Other
-                        # valid sub-categories just give us the same
-                        # value for result.
-                        # break
+        for cat1 in hierarchy_left.has_slash[slash.RAPPLY].without_rules({'>T'}).all:
+            if cat1.dom.shape is not None:
+                cats2 = hierarchy_right.with_shape[cat1.dom.shape].all + \
+                    hierarchy_right.with_shape[None].all
+            else:
+                cats2 = hierarchy_right.all
+            for cat2 in cats2:
+                sub = cat2.sub_unify(cat1.dom)
+                if sub is not None:
+                    functor = cat1.subst(sub)
+                    argument = cat2.subst(sub)
+                    result = functor.cod
+                    rule = '>'
+                    # self.__graph[result].update([functor, argument])
+                    results.append((result, rule, (functor, argument)))
+                    # print(f"AFA applying {functor} to {argument}")
+                    # if cat1.closed:
+                    # If the functor was closed, all we care about
+                    # is finding *one* valid argument. Other
+                    # valid sub-categories just give us the same
+                    # value for result.
+                    # break
 
     return results
-
-
-VALID_BACKWARD_APPLY_SLASHES = \
-    [sl for sl in slash.ALL_SLASHES if sl <= slash.LAPPLY]
 
 
 def all_backward_applies(n):
@@ -207,39 +196,29 @@ def all_backward_applies(n):
         hierarchy_left = hierarchies[k]
         hierarchy_right = hierarchies[n-k]
 
-        for sl2 in VALID_BACKWARD_APPLY_SLASHES:
-            if sl2 not in hierarchy_right.has_slash.keys():
-                continue
-            for cat2 in hierarchy_right.has_slash[sl2].without_rules({'<T'}).all:
-                if cat2.dom.shape is not None:
-                    cats1 = hierarchy_left.with_shape[cat2.dom.shape].all + \
-                        hierarchy_left.with_shape[None].all
-                else:
-                    cats1 = hierarchy_left.all
-                for cat1 in cats1:
-                    sub = cat1.sub_unify(cat2.dom)
-                    if sub is not None:
-                        functor = cat2.subst(sub)
-                        argument = cat1.subst(sub)
-                        result = functor.cod
-                        # self.__graph[result].update([functor, argument])
-                        results.append((result, '<', (argument, functor)))
-                        # print(f"ABA passing {argument} to {functor}")
-                        # if cat2.closed:
-                        # If the functor was closed, all we care about
-                        # is finding *one* valid argument. Other
-                        # valid sub-categories just give us the same
-                        # value for result.
-                        # break
+        for cat2 in hierarchy_right.has_slash[slash.LAPPLY].without_rules({'<T'}).all:
+            if cat2.dom.shape is not None:
+                cats1 = hierarchy_left.with_shape[cat2.dom.shape].all + \
+                    hierarchy_left.with_shape[None].all
+            else:
+                cats1 = hierarchy_left.all
+            for cat1 in cats1:
+                sub = cat1.sub_unify(cat2.dom)
+                if sub is not None:
+                    functor = cat2.subst(sub)
+                    argument = cat1.subst(sub)
+                    result = functor.cod
+                    # self.__graph[result].update([functor, argument])
+                    results.append((result, '<', (argument, functor)))
+                    # print(f"ABA passing {argument} to {functor}")
+                    # if cat2.closed:
+                    # If the functor was closed, all we care about
+                    # is finding *one* valid argument. Other
+                    # valid sub-categories just give us the same
+                    # value for result.
+                    # break
 
     return results
-
-
-VALID_FORWARD_COMPOSE_SLASHES = \
-    [sl for sl in slash.ALL_SLASHES if sl <= slash.RCOMPOSE]
-
-VALID_BACKWARD_COMPOSE_SLASHES = \
-    [sl for sl in slash.ALL_SLASHES if sl <= slash.LCOMPOSE]
 
 
 def all_forward_compositions(n):
@@ -250,59 +229,52 @@ def all_forward_compositions(n):
         hierarchy_left = hierarchies[k]
         hierarchy_right = hierarchies[n-k]
 
-        for sl1 in VALID_FORWARD_COMPOSE_SLASHES:
-            if sl1 not in hierarchy_left.has_slash.keys():
-                continue
-            for cat1 in hierarchy_left.has_slash[sl1].all:
-                common_shape = cat1.dom.shape
-                assert(common_shape is not None)
-                for sl2 in VALID_FORWARD_COMPOSE_SLASHES:
-                    if sl2 in hierarchy_right.has_slash.keys():
-                        cats2 = hierarchy_right.has_slash[sl2] \
-                            .left.with_shape[common_shape].all
-                        for cat2 in cats2:
-                            sub = cat2.cod.sub_unify(cat1.dom)
-                            if sub is not None:
-                                primary = cat1.subst(sub)
-                                secondary = cat2.subst(sub)
-                                composition = category.SlashCategory(
-                                    primary.cod,
-                                    secondary.slash,
-                                    secondary.dom)
-                                results.append(
-                                    (composition, '>B', (primary, secondary)))
-                                # print(f"B1  {composition}  -->  "
-                                #       f"{primary} {secondary}")
-                    if sl2 in hierarchy_right.left.has_slash.keys():
-                        cats2 = hierarchy_right.left.has_slash[sl2].left.with_shape[common_shape].all
-                        for cat2 in cats2:
-                            sub = cat2.cod.cod.sub_unify(cat1.dom)
-                            if sub is not None:
-                                primary = cat1.subst(sub)
-                                secondary = cat2.subst(sub)
-                                composition = category.SlashCategory(
-                                    category.SlashCategory(
-                                        primary.cod, secondary.cod.slash, secondary.cod.dom),
-                                    secondary.slash, secondary.dom)
-                                results.append(
-                                    (composition, '>B2', (primary, secondary)))
-                    if sl2 in hierarchy_right.left.left.has_slash.keys():
-                        cats2 = hierarchy_right.left.left.has_slash[sl2] \
-                            .left.with_shape[common_shape].all
-                        for cat2 in cats2:
-                            sub = cat2.cod.cod.cod.sub_unify(cat1.dom)
-                            if sub is not None:
-                                primary = cat1.subst(sub)
-                                secondary = cat2.subst(sub)
-                                composition = \
-                                    category.SlashCategory(
-                                        category.SlashCategory(
-                                            category.SlashCategory(
-                                                primary.cod, secondary.cod.cod.slash, secondary.cod.cod.dom),
-                                            secondary.cod.slash, secondary.cod.dom),
-                                        secondary.slash, secondary.dom)
-                                results.append(
-                                    (composition, '>B2', (primary, secondary)))
+        for cat1 in hierarchy_left.has_slash[slash.RCOMPOSE].all:
+            common_shape = cat1.dom.shape
+            assert(common_shape is not None)
+            cats2 = hierarchy_right.has_slash[slash.RCOMPOSE] \
+                .left.with_shape[common_shape].all
+            for cat2 in cats2:
+                sub = cat2.cod.sub_unify(cat1.dom)
+                if sub is not None:
+                    primary = cat1.subst(sub)
+                    secondary = cat2.subst(sub)
+                    composition = category.SlashCategory(
+                        primary.cod,
+                        secondary.slash,
+                        secondary.dom)
+                    results.append(
+                        (composition, '>B', (primary, secondary)))
+                    # print(f"B1  {composition}  -->  "
+                    #       f"{primary} {secondary}")
+            cats2 = hierarchy_right.left.has_slash[slash.RCOMPOSE].left.with_shape[common_shape].all
+            for cat2 in cats2:
+                sub = cat2.cod.cod.sub_unify(cat1.dom)
+                if sub is not None:
+                    primary = cat1.subst(sub)
+                    secondary = cat2.subst(sub)
+                    composition = category.SlashCategory(
+                        category.SlashCategory(
+                            primary.cod, secondary.cod.slash, secondary.cod.dom),
+                        secondary.slash, secondary.dom)
+                    results.append(
+                        (composition, '>B2', (primary, secondary)))
+            cats2 = hierarchy_right.left.left.has_slash[slash.RCOMPOSE] \
+                .left.with_shape[common_shape].all
+            for cat2 in cats2:
+                sub = cat2.cod.cod.cod.sub_unify(cat1.dom)
+                if sub is not None:
+                    primary = cat1.subst(sub)
+                    secondary = cat2.subst(sub)
+                    composition = \
+                        category.SlashCategory(
+                            category.SlashCategory(
+                                category.SlashCategory(
+                                    primary.cod, secondary.cod.cod.slash, secondary.cod.cod.dom),
+                                secondary.cod.slash, secondary.cod.dom),
+                            secondary.slash, secondary.dom)
+                    results.append(
+                        (composition, '>B2', (primary, secondary)))
 
     return results
 
@@ -335,13 +307,6 @@ def try_backward_compose(left, left_rules, right, right_rules):
     return []
 
 
-VALID_FORWARD_CROSS_COMPOSE_SLASHES = \
-    [sl for sl in slash.ALL_SLASHES if sl <= slash.RCROSS]
-
-VALID_BACKWARD_CROSS_COMPOSE_SLASHES = \
-    [sl for sl in slash.ALL_SLASHES if sl <= slash.LCROSS]
-
-
 def all_backwards_cross_compose(n):
     global hierarchies
     results = []
@@ -350,27 +315,22 @@ def all_backwards_cross_compose(n):
         hierarchy_left = hierarchies[k]
         hierarchy_right = hierarchies[n-k]
 
-        for sl1 in VALID_FORWARD_CROSS_COMPOSE_SLASHES:
-            if sl1 not in hierarchy_left.has_slash.keys():
-                continue
-            for cat1 in hierarchy_left.has_slash[sl1].without_rules({'>T'}).all:
-                common_shape = cat1.cod.shape
-                assert(common_shape is not None)
-                for sl2 in VALID_BACKWARD_CROSS_COMPOSE_SLASHES:
-                    if sl2 in hierarchy_right.has_slash.keys():
-                        cats2 = hierarchy_right.has_slash[sl2]. \
-                            right.with_shape[common_shape].all
-                        for cat2 in cats2:
-                            sub = cat1.cod.sub_unify(cat2.dom)
-                            if sub is not None:
-                                primary = cat2.subst(sub)
-                                secondary = cat1.subst(sub)
-                                composition = category.SlashCategory(
-                                    primary.cod, secondary.slash, secondary.dom)
-                                results.append(
-                                    (composition, '<Bx', (primary, secondary)))
-                                # print(
-                                #     f"<Bx  {composition}  -->  {secondary} {primary}")
+        for cat1 in hierarchy_left.has_slash[slash.RCROSS].without_rules({'>T'}).all:
+            common_shape = cat1.cod.shape
+            assert(common_shape is not None)
+            cats2 = hierarchy_right.has_slash[slash.LCROSS]. \
+                right.with_shape[common_shape].all
+            for cat2 in cats2:
+                sub = cat1.cod.sub_unify(cat2.dom)
+                if sub is not None:
+                    primary = cat2.subst(sub)
+                    secondary = cat1.subst(sub)
+                    composition = category.SlashCategory(
+                        primary.cod, secondary.slash, secondary.dom)
+                    results.append(
+                        (composition, '<Bx', (primary, secondary)))
+                    # print(
+                    #     f"<Bx  {composition}  -->  {secondary} {primary}")
 
     return results
 

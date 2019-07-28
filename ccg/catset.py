@@ -1,5 +1,6 @@
 import category
 import collections
+import slash
 
 
 class CatSet:
@@ -37,7 +38,9 @@ class CatSet:
         if self.__has_slash is None:
             partition = collections.defaultdict(list)
             for cat, orig, rules in self.__slash_triples:
-                partition[cat.slash].append((cat, orig, rules))
+                for sl in slash.ALL_SLASHES:
+                    if cat.slash <= sl:
+                        partition[sl].append((cat, orig, rules))
             assert(None not in partition.keys())
 
             self.__has_slash = {}
