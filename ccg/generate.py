@@ -348,7 +348,7 @@ def all_backwards_cross_compose(n):
                     composition = category.SlashCategory(
                         primary.cod, secondary.slash, secondary.dom)
                     results.append(
-                        (composition, '<Bx', (primary, secondary)))
+                        (composition, '<Bx', (secondary, primary)))
                     # print(
                     #     f"<Bx  {composition}  -->  {secondary} {primary}")
 
