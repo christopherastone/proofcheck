@@ -123,21 +123,31 @@ def populate_inhabited(filename, n):
         else:
             inhabited_n = collections.defaultdict(set)
             productions_n = collections.defaultdict(list)
-            for cat, rule, whence in all_forward_applies(n):
-                #print(cat, rule, [str(x) for x in whence])
-                inhabited_n[cat].add(rule)
-                productions_n[cat].append((whence, rule))
-            for cat, rule, whence in all_backward_applies(n):
-                inhabited_n[cat].add(rule)
-                productions_n[cat].append((whence, rule))
-            for cat, rule, whence in all_forward_compositions(n):
-                inhabited_n[cat].add(rule)
-                productions_n[cat].append((whence, rule))
-            for cat, rule, whence in all_backwards_cross_compose(n):
-                inhabited_n[cat].add(rule)
-                productions_n[cat].append((whence, rule))
-                DEBUG_SET.add(cat)
             for k in range(1, n):
+                cats_left = hierarchies[k]
+                cats_right = hierarchies[n-k]
+                for cat, rule, whence in forward_applies(cats_left, cats_right):
+                    #print(cat, rule, [str(x) for x in whence])
+                    inhabited_n[cat].add(rule)
+                    productions_n[cat].append((whence, rule))
+                for cat, rule, whence in backward_applies(cats_left, cats_right):
+                    inhabited_n[cat].add(rule)
+                    productions_n[cat].append((whence, rule))
+                for cat, rule, whence in forward_composition1(cats_left, cats_right):
+                    inhabited_n[cat].add(rule)
+                    productions_n[cat].append((whence, rule))
+                for cat, rule, whence in forward_composition2(cats_left, cats_right):
+                    inhabited_n[cat].add(rule)
+                    productions_n[cat].append((whence, rule))
+                for cat, rule, whence in forward_composition3(cats_left, cats_right):
+                    inhabited_n[cat].add(rule)
+                    productions_n[cat].append((whence, rule))
+
+                for cat, rule, whence in backwards_cross_compose(cats_left, cats_right):
+                    inhabited_n[cat].add(rule)
+                    productions_n[cat].append((whence, rule))
+                    DEBUG_SET.add(cat)
+
                 cats1 = inhabited[k]
                 cats2 = inhabited[n-k]
                 for cat1, rules1 in cats1.items():
@@ -177,127 +187,133 @@ def populate_inhabited(filename, n):
     hierarchies[n] = make_hierarchy(inhabited_n)
 
 
-def all_forward_applies(n):
+def forward_applies(hierarchy_left, hierarchy_right):
     global hierarchies
     results = []
 
-    for k in range(1, n):
-        hierarchy_left = hierarchies[k]
-        hierarchy_right = hierarchies[n-k]
-
-        for cat1 in hierarchy_left.has_slash[slash.RAPPLY].without_rules({'>T'}).all:
-            if cat1.dom.shape is not None:
-                cats2 = hierarchy_right.with_shape[cat1.dom.shape].all + \
-                    hierarchy_right.with_shape[None].all
-            else:
-                cats2 = hierarchy_right.all
-            for cat2 in cats2:
-                sub = cat2.sub_unify(cat1.dom)
-                if sub is not None:
-                    functor = cat1.subst(sub)
-                    argument = cat2.subst(sub)
-                    result = functor.cod
-                    rule = '>'
-                    # self.__graph[result].update([functor, argument])
-                    results.append((result, rule, (functor, argument)))
-                    # print(f"AFA applying {functor} to {argument}")
-                    # if cat1.closed:
-                    # If the functor was closed, all we care about
-                    # is finding *one* valid argument. Other
-                    # valid sub-categories just give us the same
-                    # value for result.
-                    # break
+    for cat1 in hierarchy_left.has_slash[slash.RAPPLY].without_rules({'>T'}).all:
+        if cat1.dom.shape is not None:
+            cats2 = hierarchy_right.with_shape[cat1.dom.shape].all + \
+                hierarchy_right.with_shape[None].all
+        else:
+            cats2 = hierarchy_right.all
+        for cat2 in cats2:
+            sub = cat2.sub_unify(cat1.dom)
+            if sub is not None:
+                functor = cat1.subst(sub)
+                argument = cat2.subst(sub)
+                result = functor.cod
+                rule = '>'
+                # self.__graph[result].update([functor, argument])
+                results.append((result, rule, (functor, argument)))
+                # print(f"AFA applying {functor} to {argument}")
+                # if cat1.closed:
+                # If the functor was closed, all we care about
+                # is finding *one* valid argument. Other
+                # valid sub-categories just give us the same
+                # value for result.
+                # break
 
     return results
 
 
-def all_backward_applies(n):
-    global hierarchies
+def backward_applies(hierarchy_left, hierarchy_right):
     results = []
 
-    for k in range(1, n):
-        hierarchy_left = hierarchies[k]
-        hierarchy_right = hierarchies[n-k]
-
-        for cat2 in hierarchy_right.has_slash[slash.LAPPLY].without_rules({'<T'}).all:
-            if cat2.dom.shape is not None:
-                cats1 = hierarchy_left.with_shape[cat2.dom.shape].all + \
-                    hierarchy_left.with_shape[None].all
-            else:
-                cats1 = hierarchy_left.all
-            for cat1 in cats1:
-                sub = cat1.sub_unify(cat2.dom)
-                if sub is not None:
-                    functor = cat2.subst(sub)
-                    argument = cat1.subst(sub)
-                    result = functor.cod
-                    # self.__graph[result].update([functor, argument])
-                    results.append((result, '<', (argument, functor)))
-                    # print(f"ABA passing {argument} to {functor}")
-                    # if cat2.closed:
-                    # If the functor was closed, all we care about
-                    # is finding *one* valid argument. Other
-                    # valid sub-categories just give us the same
-                    # value for result.
-                    # break
+    for cat2 in hierarchy_right.has_slash[slash.LAPPLY].without_rules({'<T'}).all:
+        if cat2.dom.shape is not None:
+            cats1 = hierarchy_left.with_shape[cat2.dom.shape].all + \
+                hierarchy_left.with_shape[None].all
+        else:
+            cats1 = hierarchy_left.all
+        for cat1 in cats1:
+            sub = cat1.sub_unify(cat2.dom)
+            if sub is not None:
+                functor = cat2.subst(sub)
+                argument = cat1.subst(sub)
+                result = functor.cod
+                # self.__graph[result].update([functor, argument])
+                results.append((result, '<', (argument, functor)))
+                # print(f"ABA passing {argument} to {functor}")
+                # if cat2.closed:
+                # If the functor was closed, all we care about
+                # is finding *one* valid argument. Other
+                # valid sub-categories just give us the same
+                # value for result.
+                # break
 
     return results
 
 
-def all_forward_compositions(n):
-    global hierarchies
+def forward_composition1(hierarchy_left, hierarchy_right):
     results = []
 
-    for k in range(1, n):
-        hierarchy_left = hierarchies[k]
-        hierarchy_right = hierarchies[n-k]
+    for cat1 in hierarchy_left.has_slash[slash.RCOMPOSE].all:
+        common_shape = cat1.dom.shape
+        assert(common_shape is not None)
+        cats2 = hierarchy_right.has_slash[slash.RCOMPOSE] \
+            .left.with_shape[common_shape].all
+        for cat2 in cats2:
+            sub = cat2.cod.sub_unify(cat1.dom)
+            if sub is not None:
+                primary = cat1.subst(sub)
+                secondary = cat2.subst(sub)
+                composition = category.SlashCategory(
+                    primary.cod,
+                    secondary.slash,
+                    secondary.dom)
+                results.append(
+                    (composition, '>B', (primary, secondary)))
+                # print(f"B1  {composition}  -->  "
+                #       f"{primary} {secondary}")
 
-        for cat1 in hierarchy_left.has_slash[slash.RCOMPOSE].all:
-            common_shape = cat1.dom.shape
-            assert(common_shape is not None)
-            cats2 = hierarchy_right.has_slash[slash.RCOMPOSE] \
-                .left.with_shape[common_shape].all
-            for cat2 in cats2:
-                sub = cat2.cod.sub_unify(cat1.dom)
-                if sub is not None:
-                    primary = cat1.subst(sub)
-                    secondary = cat2.subst(sub)
-                    composition = category.SlashCategory(
-                        primary.cod,
-                        secondary.slash,
-                        secondary.dom)
-                    results.append(
-                        (composition, '>B', (primary, secondary)))
-                    # print(f"B1  {composition}  -->  "
-                    #       f"{primary} {secondary}")
-            cats2 = hierarchy_right.left.has_slash[slash.RCOMPOSE].left.with_shape[common_shape].all
-            for cat2 in cats2:
-                sub = cat2.cod.cod.sub_unify(cat1.dom)
-                if sub is not None:
-                    primary = cat1.subst(sub)
-                    secondary = cat2.subst(sub)
-                    composition = category.SlashCategory(
-                        category.SlashCategory(
-                            primary.cod, secondary.cod.slash, secondary.cod.dom),
-                        secondary.slash, secondary.dom)
-                    results.append(
-                        (composition, '>B2', (primary, secondary)))
-            cats2 = hierarchy_right.left.left.has_slash[slash.RCOMPOSE] \
-                .left.with_shape[common_shape].all
-            for cat2 in cats2:
-                sub = cat2.cod.cod.cod.sub_unify(cat1.dom)
-                if sub is not None:
-                    primary = cat1.subst(sub)
-                    secondary = cat2.subst(sub)
-                    composition = \
+    return results
+
+
+def forward_composition2(hierarchy_left, hierarchy_right):
+    results = []
+
+    for cat1 in hierarchy_left.has_slash[slash.RCOMPOSE].all:
+        common_shape = cat1.dom.shape
+        assert(common_shape is not None)
+        cats2 = hierarchy_right.left.has_slash[slash.RCOMPOSE].left.with_shape[common_shape].all
+        for cat2 in cats2:
+            sub = cat2.cod.cod.sub_unify(cat1.dom)
+            if sub is not None:
+                primary = cat1.subst(sub)
+                secondary = cat2.subst(sub)
+                composition = category.SlashCategory(
+                    category.SlashCategory(
+                        primary.cod, secondary.cod.slash, secondary.cod.dom),
+                    secondary.slash, secondary.dom)
+                results.append(
+                    (composition, '>B2', (primary, secondary)))
+
+    return results
+
+
+def forward_composition3(hierarchy_left, hierarchy_right):
+    results = []
+
+    for cat1 in hierarchy_left.has_slash[slash.RCOMPOSE].all:
+        common_shape = cat1.dom.shape
+        assert(common_shape is not None)
+        cats2 = hierarchy_right.left.left.has_slash[slash.RCOMPOSE] \
+            .left.with_shape[common_shape].all
+        for cat2 in cats2:
+            sub = cat2.cod.cod.cod.sub_unify(cat1.dom)
+            if sub is not None:
+                primary = cat1.subst(sub)
+                secondary = cat2.subst(sub)
+                composition = \
+                    category.SlashCategory(
                         category.SlashCategory(
                             category.SlashCategory(
-                                category.SlashCategory(
-                                    primary.cod, secondary.cod.cod.slash, secondary.cod.cod.dom),
-                                secondary.cod.slash, secondary.cod.dom),
-                            secondary.slash, secondary.dom)
-                    results.append(
-                        (composition, '>B3', (primary, secondary)))
+                                primary.cod, secondary.cod.cod.slash, secondary.cod.cod.dom),
+                            secondary.cod.slash, secondary.cod.dom),
+                        secondary.slash, secondary.dom)
+                results.append(
+                    (composition, '>B3', (primary, secondary)))
 
     return results
 
@@ -330,30 +346,23 @@ def try_backward_compose(left, left_rules, right, right_rules):
     return []
 
 
-def all_backwards_cross_compose(n):
-    global hierarchies
+def backwards_cross_compose(hierarchy_left, hierarchy_right):
     results = []
 
-    for k in range(1, n):
-        hierarchy_left = hierarchies[k]
-        hierarchy_right = hierarchies[n-k]
-
-        for cat1 in hierarchy_left.has_slash[slash.RCROSS].without_rules({'>T'}).all:
-            common_shape = cat1.cod.shape
-            assert(common_shape is not None)
-            cats2 = hierarchy_right.has_slash[slash.LCROSS]. \
-                right.with_shape[common_shape].all
-            for cat2 in cats2:
-                sub = cat1.cod.sub_unify(cat2.dom)
-                if sub is not None:
-                    primary = cat2.subst(sub)
-                    secondary = cat1.subst(sub)
-                    composition = category.SlashCategory(
-                        primary.cod, secondary.slash, secondary.dom)
-                    results.append(
-                        (composition, '<Bx', (secondary, primary)))
-                    # print(
-                    #     f"<Bx  {composition}  -->  {secondary} {primary}")
+    for cat1 in hierarchy_left.has_slash[slash.RCROSS].without_rules({'>T'}).all:
+        common_shape = cat1.cod.shape
+        assert(common_shape is not None)
+        cats2 = hierarchy_right.has_slash[slash.LCROSS]. \
+            right.with_shape[common_shape].all
+        for cat2 in cats2:
+            sub = cat1.cod.sub_unify(cat2.dom)
+            if sub is not None:
+                primary = cat2.subst(sub)
+                secondary = cat1.subst(sub)
+                composition = category.SlashCategory(
+                    primary.cod, secondary.slash, secondary.dom)
+                results.append(
+                    (composition, '<Bx', (secondary, primary)))
 
     return results
 
@@ -398,112 +407,6 @@ def bad_compose(lrule, rrule, dir, compose_order):
             return True
 
     return False
-
-
-def try_general_forward_compose(left, left_rules, right, right_rules,
-                                max_order, spine):
-
-    # Were there too many extra arguments?
-    order_of_this_composition = len(spine) + 1
-    if order_of_this_composition > max_order:
-        return []
-
-    # This code doesn't work if one of the sides is an actual
-    # metavariable.
-    assert(not (isinstance(left, category.Metavar)))
-    assert(not (isinstance(right, category.Metavar)))
-
-    if not (isinstance(left, category.SlashCategory) and
-            left.slash <= slash.RCOMPOSE and
-            isinstance(right, category.SlashCategory)):
-        # Left side doesn't have a composible right-slash,
-        # or right side doesn't have any slash, so
-        # there's no hope of applying a B rule.
-        return []
-
-    # Note: In the presence of metavariables, it's easy
-    # to see that more than one composition might be legal,
-    # e.g.,  X / T  can compose with  A / B / C
-    #    resulting in   X / C     (>B)
-    #                   X / B / C (>B2)
-    #   (not to mention X  via application a.k.a. >B0)
-    # So we need to check higher-order compositions
-    #  even if a simple >B direct composition would work.
-
-    # Do the recursive checking
-    compositions_found = []
-    if (isinstance(right.cod, category.SlashCategory)):
-        compositions_found += try_general_forward_compose(
-            left, left_rules, right.cod, right_rules,
-            max_order, [(right.slash, right.dom)] + spine)
-
-    # if compositions_found and left.dom.closed:
-    #    return compositions_found
-
-    # OK, let's finally try to do *this* composition.
-
-    if not (right.slash <= slash.RCOMPOSE):
-        # not a composeable slash on the right
-        return compositions_found
-
-    # two composeable right slashes. Confirm they match up
-    sub = right.cod.sub_unify(left.dom)
-    if sub is None:
-        return compositions_found
-
-    # Note that just because we can't do an order-1 composition
-    # doesn't mean higher-order compositions weren't legal
-    # E.g., if a / T      came from >B1
-    #          b / d / f  came from <
-    # Then a / f via >B1 is forbidden, but a / d / f by >B2 would be ok
-
-    # So even if this composition is forbidden due to normal forms,
-    # we should still return any valid compositions that we discovered
-    # recursively.
-
-    # In theory, the same category could be arrived at in more than
-    # one way. Beacuse of that, we need to check that no possible
-    # ways of deriving the left-hand-side and the right-hand-side
-    # could produce a normal derivation.
-    if SKIP_NONNORMAL:
-        validity_checks = [
-            bad_compose(lrule, rrule, '>', order_of_this_composition)
-            for lrule in left_rules for rrule in right_rules]
-        # validity_checks has False for any *valid* composition and
-        #   True for any invalid composition. We abort only if
-        #   there were zero valid compositions.
-        if all(validity_checks):
-            return compositions_found
-
-    # Put together the final composition
-    # (using un-substituted categories!)
-    composition = category.SlashCategory(left.cod, right.slash, right.dom)
-    for sl, cat in spine:
-        composition = category.SlashCategory(composition, sl, cat)
-
-    primary = left.subst(sub)
-    secondary = right.subst(sub)
-    composition = composition.subst(sub)
-
-    rule = '>B'
-    if (order_of_this_composition > 1):
-        rule += str(order_of_this_composition)
-
-    if DEBUG:
-        print(f"    DEBUG trying >B" + str(order_of_this_composition))
-        print(f"          {left} {left_rules} {right} {right_rules}")
-        print(f"          {primary} {secondary}")
-        print(f"          {composition}")
-
-    # self.__graph[composition].update([primary, secondary])
-    # if order_of_this_composition == 1:  # XXX: for debugging
-    #     if composition not in inhabited_n:
-    #         print(f"missing composition: {composition} -> {primary} {secondary}")
-    if (order_of_this_composition > 3):
-        # we already optimized the >B1 and >B2 case
-        compositions_found.append((composition, rule, (primary, secondary)))
-
-    return compositions_found
 
 
 def try_binary_rules(left, left_rules, right, right_rules):
@@ -726,7 +629,8 @@ def test_lexicon(filename):
         all_rules = set()
         for rules in inhabited[n].values():
             all_rules.update(rules)
-        print(f"{n} words : {len(inhabited[n])} categories via {all_rules}")
+        print(f"{n} words : {len(inhabited[n])} categories via "
+              f"{', '.join(sorted(list(all_rules)))}")
 
 
 if __name__ == '__main__':
