@@ -142,21 +142,15 @@ def populate_inhabited(filename, n):
                 for cat, rule, whence in forward_composition3(cats_left, cats_right):
                     inhabited_n[cat].add(rule)
                     productions_n[cat].append((whence, rule))
+                for cat, rule, whence in backward_composition1(cats_left, cats_right):
+                    inhabited_n[cat].add(rule)
+                    productions_n[cat].append((whence, rule))
 
                 for cat, rule, whence in backwards_cross_compose(cats_left, cats_right):
                     inhabited_n[cat].add(rule)
                     productions_n[cat].append((whence, rule))
                     DEBUG_SET.add(cat)
 
-                cats1 = inhabited[k]
-                cats2 = inhabited[n-k]
-                for cat1, rules1 in cats1.items():
-                    cat1 = cat1.refresh()
-                    for cat2, rules2 in cats2.items():
-                        delta = try_binary_rules(cat1, rules1, cat2, rules2)
-                        for cat, rule, whence in delta:
-                            inhabited_n[cat].add(rule)
-                            productions_n[cat].append((whence, rule))
                 type_raised = []
                 for cat in inhabited_n.keys():
                     # if not cat.closed:
@@ -314,6 +308,31 @@ def forward_composition3(hierarchy_left, hierarchy_right):
                         secondary.slash, secondary.dom)
                 results.append(
                     (composition, '>B3', (primary, secondary)))
+
+    return results
+
+
+def backward_composition1(hierarchy_left, hierarchy_right):
+    results = []
+
+    for cat1 in hierarchy_left.has_slash[slash.LCOMPOSE].all:
+        common_shape = cat1.cod.shape
+        assert(common_shape is not None)
+        cats2 = hierarchy_right.has_slash[slash.LCOMPOSE] \
+            .right.with_shape[common_shape].all
+        for cat2 in cats2:
+            sub = cat1.cod.sub_unify(cat2.dom)
+            if sub is not None:
+                secondary = cat1.subst(sub)
+                primary = cat2.subst(sub)
+                composition = category.SlashCategory(
+                    primary.cod,
+                    secondary.slash,
+                    secondary.dom)
+                results.append(
+                    (composition, '<B', (secondary, primary)))
+                # print(f"B1  {composition}  -->  "
+                #       f"{primary} {secondary}")
 
     return results
 
