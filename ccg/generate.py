@@ -96,7 +96,9 @@ def reset(filename):
     lexicon_hash = zlib.adler32(";".join(cat_names).encode('utf8'))
     print(lexicon_hash)
 
+
 categories_seen = set()
+
 
 def populate_inhabited(filename, n):
     global inhabited, hierarchies, categories_seen
@@ -109,6 +111,7 @@ def populate_inhabited(filename, n):
     if n == 1:
         reset(filename)
         inhabited_n = inhabited[1]
+        productions_n = {cat: [([], 'LEX')] for cat in inhabited_n.keys()}
     else:
         pickle_file = f'pickles/inhabited.{lexicon_hash}.{n}.out'
         if USE_PICKLES and os.path.isfile(pickle_file):
@@ -117,15 +120,20 @@ def populate_inhabited(filename, n):
                 inhabited_n = pickle.load(f)
         else:
             inhabited_n = collections.defaultdict(set)
-            for cat, rule, how in all_forward_applies(n):
-                #print(cat, rule, [str(x) for x in how])
+            productions_n = collections.defaultdict(list)
+            for cat, rule, whence in all_forward_applies(n):
+                #print(cat, rule, [str(x) for x in whence])
                 inhabited_n[cat].add(rule)
-            for cat, rule, _ in all_backward_applies(n):
+                productions_n[cat].append((whence, rule))
+            for cat, rule, whence in all_backward_applies(n):
                 inhabited_n[cat].add(rule)
-            for cat, rule, _ in all_forward_compositions(n):
+                productions_n[cat].append((whence, rule))
+            for cat, rule, whence in all_forward_compositions(n):
                 inhabited_n[cat].add(rule)
-            for cat, rule, _ in all_backwards_cross_compose(n):
+                productions_n[cat].append((whence, rule))
+            for cat, rule, whence in all_backwards_cross_compose(n):
                 inhabited_n[cat].add(rule)
+                productions_n[cat].append((whence, rule))
             for k in range(1, n):
                 cats1 = inhabited[k]
                 cats2 = inhabited[n-k]
@@ -133,15 +141,17 @@ def populate_inhabited(filename, n):
                     cat1 = cat1.refresh()
                     for cat2 in cats2.keys():
                         delta = try_binary_rules(cat1, [], cat2, [])
-                        for cat, rule, _ in delta:
+                        for cat, rule, whence in delta:
                             inhabited_n[cat].add(rule)
+                            productions_n[cat].append((whence, rule))
                 type_raised = []
                 for cat in inhabited_n.keys():
                     # if not cat.closed:
                     #    continue
                     type_raised += typeraise(cat, [])
-                for cat, rule, _ in type_raised:
+                for cat, rule, whence in type_raised:
                     inhabited_n[cat].add(rule)
+                    productions_n[cat].append((whence, rule))
             os.makedirs('pickles', exist_ok=True)
             with open(pickle_file, 'wb') as f:
                 pickle.dump(inhabited_n, f)
@@ -154,8 +164,10 @@ def populate_inhabited(filename, n):
     new_categories = list(these_categories - categories_seen)
     new_categories.sort(key=lambda c: len(str(c)))
     print(" new categories include: ")
-    for c in new_categories[:10]:
-        print(f"    {c}   {' '.join(inhabited_n[c])}")
+    for cat in new_categories[:25]:
+        for operands, rule in productions_n[cat]:
+            print(
+                f"    {cat}    {'  '.join([category.alpha_normalized_string(c) for c in operands])}   {rule}")
     categories_seen.update(these_categories)
     # print(pp_info(inhabited_n))
 
@@ -282,7 +294,7 @@ def all_forward_compositions(n):
                                 secondary.cod.slash, secondary.cod.dom),
                             secondary.slash, secondary.dom)
                     results.append(
-                        (composition, '>B2', (primary, secondary)))
+                        (composition, '>B3', (primary, secondary)))
 
     return results
 
@@ -555,11 +567,11 @@ def typeraise(cat, rules):
     assert(not generic_S.closed)
 
     if cat.sub_unify(category.NP) is not None:
-        answer= [mk_fwd(generic_S), mk_back(generic_S),
-                mk_fwd(category.SlashCategory(
-                    generic_S, slash.LSLASH, category.NP)),
-                mk_fwd(category.SlashCategory(
-                    generic_S, slash.LSLASH, category.NP))]
+        answer = [mk_fwd(generic_S), mk_back(generic_S),
+                  mk_fwd(category.SlashCategory(
+                      generic_S, slash.LSLASH, category.NP)),
+                  mk_fwd(category.SlashCategory(
+                      generic_S, slash.LSLASH, category.NP))]
         assert(all(not x[0].closed for x in answer))
 
         return answer
