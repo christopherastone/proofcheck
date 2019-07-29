@@ -22,6 +22,9 @@ MAX_CATEGORIES_GEN = 50
 MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
 MAX_COMPOSITION_ORDER = 3
+SHOW_WHATS_NEW = True
+ALSO_SHOW_WHATS_MISSING = True
+DO_TYPERAISE = True
 
 USE_PICKLES = False   # breaks things, because hashes are nondeterministic!
 
@@ -29,7 +32,7 @@ STRIP_ATTRIBUTES = True
 
 assert(MAX_COMPOSITION_ORDER >= 1)
 
-USE_CCGBANK_LEXICON = True
+USE_CCGBANK_LEXICON = False
 
 
 slashre = re.compile(r'[/|\\]')
@@ -60,9 +63,10 @@ lexicon_hash = -1
 
 
 def reset(filename):
-    global inhabited, lexicon_hash
+    global inhabited, productions, lexicon_hash
 
     inhabited1 = collections.defaultdict(set)
+    productions1 = collections.defaultdict(list)
     if USE_CCGBANK_LEXICON:
         cat_dict = ccgbank.process_lexicon(
             'data/ccgbank_1_1/data/LEX/CCGbank.00-24.lexicon', 50)
@@ -72,6 +76,7 @@ def reset(filename):
                 if STRIP_ATTRIBUTES:
                     cat = category.strip_attributes(cat)
                 inhabited1[cat].add('LEX')
+                productions1[cat].append(([], 'LEX'))
             else:
                 print("oops: ", s)
     else:
@@ -79,17 +84,23 @@ def reset(filename):
         lexicon = catparser.do_parses(lexicon_data)[0]
         for infos in lexicon.values():
             for cat, _ in infos:
+                if STRIP_ATTRIBUTES:
+                    cat = category.strip_attributes(cat)
                 inhabited1[cat].add('LEX')
+                productions1[cat].append(([], 'LEX'))
 
-    type_raised = []
-    for cat in inhabited1.keys():
-        # if not cat.closed:
-        #    continue
-        type_raised += typeraise(cat, [])
-    for cat, rule, _ in type_raised:
-        inhabited1[cat].add(rule)
+    if DO_TYPERAISE:
+        type_raised = []
+        for cat in inhabited1.keys():
+            # if not cat.closed:
+            #    continue
+            type_raised += typeraise(cat, [])
+        for cat, rule, whence in type_raised:
+            inhabited1[cat].add(rule)
+            productions1[cat].append((whence, rule))
 
     inhabited = {1: inhabited1}
+    productions = {1: productions1}
 
     cat_names = [category.alpha_normalized_string(cat)
                  for cat in inhabited1.keys()]
@@ -104,8 +115,6 @@ categories_seen = set()
 
 def populate_inhabited(filename, max_n):
     global inhabited, hierarchies, categories_seen
-    global SKIP_NONNORMAL
-    SKIP_NONNORMAL = False
 
     for n in range(1, max_n + 1):
         print(f"inhabited({n}) starting")
@@ -113,7 +122,7 @@ def populate_inhabited(filename, max_n):
         if n == 1:
             reset(filename)
             inhabited_n = inhabited[1]
-            productions_n = {cat: [([], 'LEX')] for cat in inhabited_n.keys()}
+            productions_n = productions[1]
         else:
             pickle_file = f'pickles/inhabited.{lexicon_hash}.{n}.out'
             if USE_PICKLES and os.path.isfile(pickle_file):
@@ -128,10 +137,11 @@ def populate_inhabited(filename, max_n):
                     cats_right = hierarchies[n-k]
 
                     def run_rule(rule_fn):
+                        #print(f"run rule {rule_fn.__name__} for {k} and {n-k}")
                         nonlocal cats_left, cats_right
                         nonlocal inhabited_n, productions_n
                         for cat, rule, whence in rule_fn(cats_left, cats_right):
-                            # print(cat, rule, [str(x) for x in whence])
+                            #print(n, cat, rule, [str(x) for x in whence])
                             inhabited_n[cat].add(rule)
                             productions_n[cat].append((whence, rule))
 
@@ -158,23 +168,36 @@ def populate_inhabited(filename, max_n):
 
         inhabited[n] = inhabited_n
         productions[n] = productions_n
+
         print(f"inhabited({n}) done. Found {len(inhabited_n)} categories")
 
         # What's new?
-        these_categories = set(inhabited_n.keys())
-        new_categories = list(these_categories - categories_seen)
+        if SHOW_WHATS_NEW:
+            these_categories = set(inhabited_n.keys())
+            new_categories = list(these_categories - categories_seen)
+            #new_categories = list(these_categories)
 
-        new_categories.sort(key=lambda c: sort_key(str(c)))
+            new_categories.sort(key=lambda c: sort_key(str(c)))
 
-        print(" new categories include: ")
-        for cat in new_categories[:25]:
-            for operands, rule in productions_n[cat]:
-                print(
-                    f"    {cat}    {'  '.join([category.alpha_normalized_string(c) for c in operands])}   {rule}")
-        categories_seen.update(these_categories)
-        # print(pp_info(inhabited_n))
+            print(" new categories include: ")
+            for cat in new_categories[:25]:
+                for operands, rule in productions_n[cat]:
+                    print(
+                        f"    {cat}    {'  '.join([category.alpha_normalized_string(c) for c in operands])}   {rule}")
+
+            missing_categories = list(categories_seen - these_categories)
+            if ALSO_SHOW_WHATS_MISSING and missing_categories:
+                print(" missing categories include ",
+                      ",  ".join([category.alpha_normalized_string(c) for c in missing_categories]))
+
+            categories_seen.update(these_categories)
+
+        #print("these categories", pp_info(inhabited_n))
 
         hierarchies[n] = make_hierarchy(inhabited_n)
+
+        production_graph = build_graph(productions)
+        bfs(production_graph)
 
     return productions
 
@@ -182,7 +205,12 @@ def populate_inhabited(filename, max_n):
 def forward_applies(cats_left, cats_right):
     results = []
 
-    for cat1 in cats_left.has_slash[slash.RAPPLY].without_rules({'>T'}).all:
+    if SKIP_NONNORMAL:
+        cats1 = cats_left.has_slash[slash.RAPPLY] \
+            .without_rules({'>T', '>B', '>B1', '>B2', '>B3', '>B4'}).all
+    else:
+        cats1 = cats_left.has_slash[slash.RAPPLY].all
+    for cat1 in cats1:
         if cat1.dom.shape is not None:
             cats2 = cats_right.with_shape[cat1.dom.shape].all + \
                 cats_right.with_shape[None].all
@@ -211,7 +239,13 @@ def forward_applies(cats_left, cats_right):
 def backward_applies(cats_left, cats_right):
     results = []
 
-    for cat2 in cats_right.has_slash[slash.LAPPLY].without_rules({'<T'}).all:
+    if SKIP_NONNORMAL:
+        cats2 = cats_right.has_slash[slash.LAPPLY].\
+            without_rules({'<T', '<B', '<B1', '<B2', '<B3', '<B4'}).all
+    else:
+        cats2 = cats_right.has_slash[slash.LAPPLY].all
+
+    for cat2 in cats2:
         if cat2.dom.shape is not None:
             cats1 = cats_left.with_shape[cat2.dom.shape].all + \
                 cats_left.with_shape[None].all
@@ -239,9 +273,14 @@ def backward_applies(cats_left, cats_right):
 def forward_composition1(cats_left, cats_right):
     results = []
 
-    for cat1 in cats_left.has_slash[slash.RCOMPOSE].all:
+    cats1 = cats_left.has_slash[slash.RCOMPOSE]
+    if SKIP_NONNORMAL:
+        cats1 = cats1.without_rules({'>B', '>B1', '>B2', '>B3', '>B4'})
+
+    for cat1 in cats1.all:
         common_shape = cat1.dom.shape
         assert(common_shape is not None)
+
         cats2 = cats_right.has_slash[slash.RCOMPOSE] \
             .left.with_shape[common_shape].all
         for cat2 in cats2:
@@ -264,10 +303,16 @@ def forward_composition1(cats_left, cats_right):
 def forward_composition2(cats_left, cats_right):
     results = []
 
-    for cat1 in cats_left.has_slash[slash.RCOMPOSE].all:
+    cats1 = cats_left.has_slash[slash.RCOMPOSE]
+    if SKIP_NONNORMAL:
+        cats1 = cats1.without_rules({'>B', '>B1'})
+
+    for cat1 in cats1.all:
         common_shape = cat1.dom.shape
         assert(common_shape is not None)
-        cats2 = cats_right.left.has_slash[slash.RCOMPOSE].left.with_shape[common_shape].all
+
+        cats2 = cats_right.left.has_slash[slash.RCOMPOSE] \
+            .left.with_shape[common_shape].all
         for cat2 in cats2:
             sub = cat2.cod.cod.sub_unify(cat1.dom)
             if sub is not None:
@@ -286,23 +331,28 @@ def forward_composition2(cats_left, cats_right):
 def forward_composition3(cats_left, cats_right):
     results = []
 
-    for cat1 in cats_left.has_slash[slash.RCOMPOSE].all:
+    cats1 = cats_left.has_slash[slash.RCOMPOSE]
+    if SKIP_NONNORMAL:
+        cats1 = cats1.without_rules({'>B', '>B1'})
+
+    for cat1 in cats1.all:
         common_shape = cat1.dom.shape
         assert(common_shape is not None)
         cats2 = cats_right.left.left.has_slash[slash.RCOMPOSE] \
-            .left.with_shape[common_shape].all
-        for cat2 in cats2:
+            .left.with_shape[common_shape]
+        if SKIP_NONNORMAL:
+            cats2 = cats2.without_rules({'>B2'})
+        for cat2 in cats2.all:
             sub = cat2.cod.cod.cod.sub_unify(cat1.dom)
             if sub is not None:
                 primary = cat1.subst(sub)
                 secondary = cat2.subst(sub)
-                composition = \
+                composition = category.SlashCategory(
                     category.SlashCategory(
                         category.SlashCategory(
-                            category.SlashCategory(
-                                primary.cod, secondary.cod.cod.slash, secondary.cod.cod.dom),
-                            secondary.cod.slash, secondary.cod.dom),
-                        secondary.slash, secondary.dom)
+                            primary.cod, secondary.cod.cod.slash, secondary.cod.cod.dom),
+                        secondary.cod.slash, secondary.cod.dom),
+                    secondary.slash, secondary.dom)
                 results.append(
                     (composition, '>B3', (primary, secondary)))
 
@@ -312,12 +362,16 @@ def forward_composition3(cats_left, cats_right):
 def backward_composition1(cats_left, cats_right):
     results = []
 
-    for cat1 in cats_left.has_slash[slash.LCOMPOSE].all:
-        common_shape = cat1.cod.shape
+    cats2 = cats_right.has_slash[slash.LCOMPOSE]
+    if SKIP_NONNORMAL:
+        cats2 = cats2.without_rules({'<B', '<B1', '<B2', '<B3', '<B4'})
+
+    for cat2 in cats2.all:
+        common_shape = cat2.dom.shape
         assert(common_shape is not None)
-        cats2 = cats_right.has_slash[slash.LCOMPOSE] \
-            .right.with_shape[common_shape].all
-        for cat2 in cats2:
+        cats1 = cats_left.has_slash[slash.LCOMPOSE] \
+            .left.with_shape[common_shape]
+        for cat1 in cats1.all:
             sub = cat1.cod.sub_unify(cat2.dom)
             if sub is not None:
                 secondary = cat1.subst(sub)
@@ -435,18 +489,21 @@ def typeraise(cat, rules):
 
 def build_graph(productions):
     graph = collections.defaultdict(set)
+
     for n, productions_n in productions.items():
         for cat, sources in productions_n.items():
             for whence, rule in sources:
                 graph[cat].update(whence)
+
     return graph
 
 
 def bfs(production_graph):
-    print("\n\nUseful (reachable) inhabited categories from S\n")
+    print("Useful (reachable) inhabited categories from S")
 
-    print(f'for constructing S   : {production_graph[category.S]}')
-    # print(f'for constructing S/NP: {self.__graph[category.]}')
+    # print(f'for constructing S   : {production_graph[category.S]}')
+    print(
+        f'for constructing S/NP: {" ".join([category.alpha_normalized_string(c) for c in production_graph[category.SlashCategory(category.S, slash.RSLASH, category.NP)]])}')
 
     visited = set()
     queue = [category.S]
@@ -464,170 +521,13 @@ def bfs(production_graph):
     all_visited = [category.alpha_normalized_string(c) for c in visited]
     all_visited.sort(key=sort_key)
     # print(all_visited)
-    print('  '.join(all_visited[:100]))
-    print(len(all_visited))
-
-
-"""
-class CategoryEnumerator:
-    def __init__(self, filename):
-        global DEBUG
-
-        if USE_CCGBANK_LEXICON:
-            cat_dict = ccgbank.process_lexicon(
-                'data/ccgbank_1_1/data/LEX/CCGbank.00-24.lexicon', 500)
-            self.__original_cats = set()
-            for s in cat_dict.keys():
-                cat = catparser.catparser.parse(s)
-                if cat is not None:
-                    self.__original_cats.add(cat)
-                else:
-                    print("oops: ", s)
-        else:
-            lexicon_data = open(filename).read().splitlines()
-            lexicon = catparser.do_parses(lexicon_data)[0]
-            self.__original_cats = set(
-                cat for infos in lexicon.values() for cat, _ in infos)
-
-        # XX XXX: For now, assume there are no singletons!
-        # self.__singletons = set()
-        # for cat in all_cats:
-        #     self.add_singletons(cat)
-        # for word in self.__singletons:
-        #    self.__rules.append(Rule(category.SingletonCategory(word), [word]))
-
-        worklist = []  # empty heap!
-
-        self.__graph = collections.defaultdict(set)
-
-        # map from category to
-        #   map from creating rules to justifications
-        self.__categories = collections.defaultdict(
-            lambda: collections.defaultdict(list))
-
-        # initialize worklist with lexical itmes
-        self.add_to_worklist(
-            [(cat, 'LEX', ['-']) for cat in self.__original_cats],
-            worklist)
-
-        # map of categories to rules
-        #   (specifically, all the data we've pulled off the worklist)
-        processed = collections.defaultdict(list)
-
-        num_heappops = 0
-        while worklist:
-            new, new_rule = heapq.heappop(worklist).data
-            processed[new].append(new_rule)
-            if not new.closed:
-                new = new.refresh()
-            # if "/*" in new_str or "\\*" in new_str:
-            #     DEBUG = True
-            if VERBOSE:
-                num_heappops += 1
-                print(f"{new} {new_rule} ({num_heappops})")
-            for old, old_rules in processed.items():
-                # print(f"    {old} {old_rules}")
-                delta = []
-                if old != new:
-                    if DEBUG:
-                        print(
-                            f"trying rule order {old} {old_rules} {new} {new_rule}")
-                    delta += self.try_rules(old, old_rules, new, [new_rule])
-                    if DEBUG:
-                        print(
-                            f"trying rule order {new} {new_rule} {old} {old_rules} ")
-                    delta += self.try_rules(new, [new_rule], old, old_rules)
-                else:
-                    new2 = new if new.closed else new.refresh()
-                    delta += self.try_rules(old,
-                                            old_rules, new2, [new_rule])
-
-                if delta:
-                    if DEBUG:
-                        print(f'    vs. {old}')
-                        print("      adding: ", ", ".join([category.alpha_normalized_string(c) + " " + r + " " + pp_info(info)
-                                                           for c, r, info in delta]))
-
-                    self.add_to_worklist(delta, worklist)
-
-            delta = self.typeraise(new, [new_rule])
-            if DEBUG:
-                print("  adding: ", ", ".join(
-                    [category.alpha_normalized_string(c) + " " + r
-                     for c, r, _ in delta]))
-            self.add_to_worklist(delta, worklist)
-
-            if num_heappops > MAX_CATEGORIES_GEN:
-                print("...etc...")
-                break
-
-            # DEBUG = False
-
-    def print_inhabited(self):
-        if (MAX_CATEGORIES_SHOW == 0):
-            return
-
-        print("\n\nINHABITED CATEGORIES\n")
-
-        for c, infomap in self.__categories.items():
-            print(c)
-            for rule, reasons in infomap.items():
-                print(f'  {rule}')
-                for reason in reasons:
-                    print(f'    {"  ".join(str(cat) for cat in reason)}')
-        exit(0)
-
-        inhabited = [(category.alpha_normalized_string(c),
-                      ", ".join(" ".join([key]+values for key, values in infomap.items())))
-                     for c, infomap in self.__categories.items()][:MAX_CATEGORIES_SHOW]
-
-        inhabited.sort(key=lambda x: sort_key(x[0]))
-        for s, rule in inhabited:
-            print(s, "\t", rule)
-        print(len(inhabited), "/", len(self.__categories))
-
-    def add_to_worklist(self, cat_rule_info_list, worklist):
-        for cat, rule, info in cat_rule_info_list:
-            if (self.__categories[cat][rule] == []):
-                heapq.heappush(worklist, HeapItem(cat, rule))
-            self.__categories[cat][rule].append(info)
-
-    def print_graph(self):
-        for start, ends in self.__graph.items():
-            for end in ends:
-                print(f'{start} -> {end}')
-
-    def bfs(self):
-        print("\n\nUseful (reachable) inhabited categories from S\n")
-
-        print(f'for constructing S   : {self.__graph[category.S]}')
-        # print(f'for constructing S/NP: {self.__graph[category.]}')
-
-        visited = set()
-        queue = [category.S]
-
-        while queue:
-            next = queue.pop(0)
-            if next in visited:
-                continue
-
-            visited.add(next)
-            queue += list(self.__graph[next])
-
-        all_visited = [str(c) for c in visited]
-        all_visited.sort(key=sort_key)
-        print(all_visited)
-        for cat in all_visited:
-            print(cat)
-        print(len(all_visited))
-"""
+    print('   ', '  '.join(all_visited[:100]))
+    print('   ', len(all_visited))
 
 
 def test_lexicon(filename):
 
-    productions = populate_inhabited(filename, 5)
-    production_graph = build_graph(productions)
-    bfs(production_graph)
+    productions = populate_inhabited(filename, 9)
 
     # for c in inhabited[2]:
     #     print(c)
@@ -636,7 +536,7 @@ def test_lexicon(filename):
         all_rules = set()
         for rules in inhabited[n].values():
             all_rules.update(rules)
-        print(f"{n} words : {len(inhabited[n])} categories via "
+        print(f"{n} words : {len(inhabited[n])}/{len(categories_seen)} categories via "
               f"{', '.join(sorted(list(all_rules)))}")
 
 
@@ -646,4 +546,4 @@ if __name__ == '__main__':
         for filename in sys.argv[1:]:
             test_lexicon(filename)
     else:
-        test_lexicon('lexicon.txt')
+        test_lexicon('demo.txt')

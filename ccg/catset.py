@@ -16,6 +16,9 @@ class CatSet:
         self.__all = None
         self.__wo_rules = {}
 
+    def __str__(self):
+        return "{{" + ', '.join([category.alpha_normalized_string(c) for c in self.all]) + "}}"
+
     @property
     def all(self):
         if self.__all is None:
@@ -43,9 +46,10 @@ class CatSet:
                         partition[sl].append((cat, orig, rules))
             assert(None not in partition.keys())
 
-            self.__has_slash = {}
+            self.__has_slash = collections.defaultdict(CatSet)
             for sl, triples in partition.items():
                 self.__has_slash[sl] = CatSet(triples)
+
         return self.__has_slash
 
     def without_rules(self, drop_set):
