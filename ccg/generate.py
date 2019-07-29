@@ -23,9 +23,6 @@ MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
 MAX_COMPOSITION_ORDER = 3
 
-DO_TYPERAISE = True
-NO_DOUBLE_TYPERAISE = True
-
 USE_PICKLES = False
 
 assert(MAX_COMPOSITION_ORDER >= 1)
@@ -99,11 +96,9 @@ def reset(filename):
 
 categories_seen = set()
 
-DEBUG_SET = set()
-
 
 def populate_inhabited(filename, n):
-    global inhabited, hierarchies, categories_seen, DEBUG_SET
+    global inhabited, hierarchies, categories_seen
     global SKIP_NONNORMAL, NO_DOUBLE_TYPERAISE
     SKIP_NONNORMAL = False
     NO_DOUBLE_TYPERAISE = False
@@ -149,16 +144,16 @@ def populate_inhabited(filename, n):
                 for cat, rule, whence in backwards_cross_compose(cats_left, cats_right):
                     inhabited_n[cat].add(rule)
                     productions_n[cat].append((whence, rule))
-                    DEBUG_SET.add(cat)
 
-                type_raised = []
-                for cat in inhabited_n.keys():
-                    # if not cat.closed:
-                    #    continue
-                    type_raised += typeraise(cat, [])
-                for cat, rule, whence in type_raised:
-                    inhabited_n[cat].add(rule)
-                    productions_n[cat].append((whence, rule))
+            type_raised = []
+            for cat in inhabited_n.keys():
+                # if not cat.closed:
+                #    continue
+                type_raised += typeraise(cat, [])
+            for cat, rule, whence in type_raised:
+                inhabited_n[cat].add(rule)
+                productions_n[cat].append((whence, rule))
+
             os.makedirs('pickles', exist_ok=True)
             with open(pickle_file, 'wb') as f:
                 pickle.dump(inhabited_n, f)
@@ -181,16 +176,16 @@ def populate_inhabited(filename, n):
     hierarchies[n] = make_hierarchy(inhabited_n)
 
 
-def forward_applies(hierarchy_left, hierarchy_right):
+def forward_applies(cats_left, cats_right):
     global hierarchies
     results = []
 
-    for cat1 in hierarchy_left.has_slash[slash.RAPPLY].without_rules({'>T'}).all:
+    for cat1 in cats_left.has_slash[slash.RAPPLY].without_rules({'>T'}).all:
         if cat1.dom.shape is not None:
-            cats2 = hierarchy_right.with_shape[cat1.dom.shape].all + \
-                hierarchy_right.with_shape[None].all
+            cats2 = cats_right.with_shape[cat1.dom.shape].all + \
+                cats_right.with_shape[None].all
         else:
-            cats2 = hierarchy_right.all
+            cats2 = cats_right.all
         for cat2 in cats2:
             sub = cat2.sub_unify(cat1.dom)
             if sub is not None:
@@ -211,15 +206,15 @@ def forward_applies(hierarchy_left, hierarchy_right):
     return results
 
 
-def backward_applies(hierarchy_left, hierarchy_right):
+def backward_applies(cats_left, cats_right):
     results = []
 
-    for cat2 in hierarchy_right.has_slash[slash.LAPPLY].without_rules({'<T'}).all:
+    for cat2 in cats_right.has_slash[slash.LAPPLY].without_rules({'<T'}).all:
         if cat2.dom.shape is not None:
-            cats1 = hierarchy_left.with_shape[cat2.dom.shape].all + \
-                hierarchy_left.with_shape[None].all
+            cats1 = cats_left.with_shape[cat2.dom.shape].all + \
+                cats_left.with_shape[None].all
         else:
-            cats1 = hierarchy_left.all
+            cats1 = cats_left.all
         for cat1 in cats1:
             sub = cat1.sub_unify(cat2.dom)
             if sub is not None:
@@ -239,13 +234,13 @@ def backward_applies(hierarchy_left, hierarchy_right):
     return results
 
 
-def forward_composition1(hierarchy_left, hierarchy_right):
+def forward_composition1(cats_left, cats_right):
     results = []
 
-    for cat1 in hierarchy_left.has_slash[slash.RCOMPOSE].all:
+    for cat1 in cats_left.has_slash[slash.RCOMPOSE].all:
         common_shape = cat1.dom.shape
         assert(common_shape is not None)
-        cats2 = hierarchy_right.has_slash[slash.RCOMPOSE] \
+        cats2 = cats_right.has_slash[slash.RCOMPOSE] \
             .left.with_shape[common_shape].all
         for cat2 in cats2:
             sub = cat2.cod.sub_unify(cat1.dom)
@@ -264,13 +259,13 @@ def forward_composition1(hierarchy_left, hierarchy_right):
     return results
 
 
-def forward_composition2(hierarchy_left, hierarchy_right):
+def forward_composition2(cats_left, cats_right):
     results = []
 
-    for cat1 in hierarchy_left.has_slash[slash.RCOMPOSE].all:
+    for cat1 in cats_left.has_slash[slash.RCOMPOSE].all:
         common_shape = cat1.dom.shape
         assert(common_shape is not None)
-        cats2 = hierarchy_right.left.has_slash[slash.RCOMPOSE].left.with_shape[common_shape].all
+        cats2 = cats_right.left.has_slash[slash.RCOMPOSE].left.with_shape[common_shape].all
         for cat2 in cats2:
             sub = cat2.cod.cod.sub_unify(cat1.dom)
             if sub is not None:
@@ -286,13 +281,13 @@ def forward_composition2(hierarchy_left, hierarchy_right):
     return results
 
 
-def forward_composition3(hierarchy_left, hierarchy_right):
+def forward_composition3(cats_left, cats_right):
     results = []
 
-    for cat1 in hierarchy_left.has_slash[slash.RCOMPOSE].all:
+    for cat1 in cats_left.has_slash[slash.RCOMPOSE].all:
         common_shape = cat1.dom.shape
         assert(common_shape is not None)
-        cats2 = hierarchy_right.left.left.has_slash[slash.RCOMPOSE] \
+        cats2 = cats_right.left.left.has_slash[slash.RCOMPOSE] \
             .left.with_shape[common_shape].all
         for cat2 in cats2:
             sub = cat2.cod.cod.cod.sub_unify(cat1.dom)
@@ -312,13 +307,13 @@ def forward_composition3(hierarchy_left, hierarchy_right):
     return results
 
 
-def backward_composition1(hierarchy_left, hierarchy_right):
+def backward_composition1(cats_left, cats_right):
     results = []
 
-    for cat1 in hierarchy_left.has_slash[slash.LCOMPOSE].all:
+    for cat1 in cats_left.has_slash[slash.LCOMPOSE].all:
         common_shape = cat1.cod.shape
         assert(common_shape is not None)
-        cats2 = hierarchy_right.has_slash[slash.LCOMPOSE] \
+        cats2 = cats_right.has_slash[slash.LCOMPOSE] \
             .right.with_shape[common_shape].all
         for cat2 in cats2:
             sub = cat1.cod.sub_unify(cat2.dom)
@@ -365,13 +360,13 @@ def try_backward_compose(left, left_rules, right, right_rules):
     return []
 
 
-def backwards_cross_compose(hierarchy_left, hierarchy_right):
+def backwards_cross_compose(cats_left, cats_right):
     results = []
 
-    for cat1 in hierarchy_left.has_slash[slash.RCROSS].without_rules({'>T'}).all:
+    for cat1 in cats_left.has_slash[slash.RCROSS].without_rules({'>T'}).all:
         common_shape = cat1.cod.shape
         assert(common_shape is not None)
-        cats2 = hierarchy_right.has_slash[slash.LCROSS]. \
+        cats2 = cats_right.has_slash[slash.LCROSS]. \
             right.with_shape[common_shape].all
         for cat2 in cats2:
             sub = cat1.cod.sub_unify(cat2.dom)
@@ -428,25 +423,7 @@ def bad_compose(lrule, rrule, dir, compose_order):
     return False
 
 
-def try_binary_rules(left, left_rules, right, right_rules):
-    return (  # try_forward_apply(left, left_rules, right, right_rules) +
-        # try_backward_apply(left, left_rules, right, right_rules) +
-        # try_forward_compose(left, left_rules, right, right_rules) +
-        try_backward_compose(left, left_rules, right, right_rules)
-        # try_general_forward_compose(left, left_rules, right, right_rules, MAX_COMPOSITION_ORDER, []) +
-        #try_backwards_cross_compose(left, left_rules, right, right_rules)
-    )
-
-
 def typeraise(cat, rules):
-    if not DO_TYPERAISE:
-        return []
-
-    if NO_DOUBLE_TYPERAISE and \
-        all(rule.startswith('>T') or
-            rule.startswith('<T') for rule in rules):
-        return []
-
     def mk_fwd(t):
         return (category.SlashCategory(
             t, slash.RSLASH, category.SlashCategory(
