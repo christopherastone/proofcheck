@@ -45,6 +45,9 @@ class Attr:
         else:
             return None
 
+    def subst(self, sub):
+        return self
+
 
 class Metavar:
     """An unknown value"""
@@ -152,8 +155,8 @@ class BaseCategory:
 
     def __init__(self, cat, semty, attrs=pyrsistent.m()):
         self.__cat = cat
-        self.__attrs = attrs
         self.__semty = semty
+        self.__attrs = attrs
         self.__hash = hash((cat, attrs))
         self.shape = hash(cat)
         assert(not(isinstance(attr, str)) for attr in attrs.values())
@@ -228,8 +231,11 @@ class BaseCategory:
             return None
 
     def subst(self, sub):
-        # XXX: Ignores feature variables
-        return self
+        if self.closed:
+            return self
+        else:
+            return BaseCategory(self.__cat, self.__semty,
+                 pyrsistent.pmap({k: v.subst(sub) for k, v in self.__attrs.items()}))
 
     def refresh(self, mv_map=None):
         return self
@@ -429,6 +435,7 @@ class SlashCategory:
 ############################
 # USEFUL COMMON CATEGORIES #
 ############################
+N = BaseCategory("N", semantic_types.et)                   # noun phrase
 NP = BaseCategory("NP", semantic_types.ett)                   # noun phrase
 S = BaseCategory("S", semantic_types.t)                     # sentence
 # prepositional phrase
