@@ -23,7 +23,9 @@ MAX_CATEGORIES_SHOW = 100
 SKIP_NONNORMAL = True
 MAX_COMPOSITION_ORDER = 3
 
-USE_PICKLES = False
+USE_PICKLES = False   # breaks things, because hashes are nondeterministic!
+
+STRIP_ATTRIBUTES = True
 
 assert(MAX_COMPOSITION_ORDER >= 1)
 
@@ -52,6 +54,7 @@ def make_hierarchy(cat_to_rules):
 # mapping from level number n to the set of
 #    categories inhabited by (1 or more) n-word phrase
 inhabited = {}
+productions = {}
 hierarchies = {}
 lexicon_hash = -1
 
@@ -66,6 +69,8 @@ def reset(filename):
         for s in cat_dict.keys():
             cat = catparser.catparser.parse(s)
             if cat is not None:
+                if STRIP_ATTRIBUTES:
+                    cat = category.strip_attributes(cat)
                 inhabited1[cat].add('LEX')
             else:
                 print("oops: ", s)
@@ -126,7 +131,7 @@ def populate_inhabited(filename, max_n):
                         nonlocal cats_left, cats_right
                         nonlocal inhabited_n, productions_n
                         for cat, rule, whence in rule_fn(cats_left, cats_right):
-                            #print(cat, rule, [str(x) for x in whence])
+                            # print(cat, rule, [str(x) for x in whence])
                             inhabited_n[cat].add(rule)
                             productions_n[cat].append((whence, rule))
 
@@ -152,6 +157,7 @@ def populate_inhabited(filename, max_n):
                     pickle.dump((inhabited_n, productions_n), f)
 
         inhabited[n] = inhabited_n
+        productions[n] = productions_n
         print(f"inhabited({n}) done. Found {len(inhabited_n)} categories")
 
         # What's new?
@@ -169,6 +175,8 @@ def populate_inhabited(filename, max_n):
         # print(pp_info(inhabited_n))
 
         hierarchies[n] = make_hierarchy(inhabited_n)
+
+    return productions
 
 
 def forward_applies(cats_left, cats_right):
@@ -326,34 +334,6 @@ def backward_composition1(cats_left, cats_right):
     return results
 
 
-def try_backward_compose(left, left_rules, right, right_rules):
-    """Consider the given combination of categories to see if
-        application might be possible(in the appropriate order,
-        depending on the direction of the functor's slash)"""
-    if isinstance(left, category.SlashCategory) \
-            and isinstance(right, category.SlashCategory):
-        # Try backward composition
-        if (left.slash <= slash.LCOMPOSE) and \
-                (right.slash <= slash.LCOMPOSE):
-            # shape is right. Do they match up?
-            sub = left.cod.sub_unify(right.dom)
-            if sub is None:
-                return []
-
-            primary = right.subst(sub)
-            secondary = left.subst(sub)
-            composition = category.SlashCategory(
-                primary.cod,
-                secondary.slash,
-                secondary.dom)
-            rule = '<B'
-
-            # self.__graph[composition].update([primary, secondary])
-            return [(composition, rule, (secondary, primary))]
-
-    return []
-
-
 def backwards_cross_compose(cats_left, cats_right):
     results = []
 
@@ -428,9 +408,11 @@ def typeraise(cat, rules):
             t, slash.LSLASH, category.SlashCategory(
                 t, slash.RSLASH, cat)), "<T", [t])
 
-    generic_S = category.BaseCategory('S', semantic_types.t,
-                                      pyrsistent.m(it=category.Metavar('X')))
-    assert(not generic_S.closed)
+    if STRIP_ATTRIBUTES:
+        generic_S = category.S
+    else:
+        generic_S = category.BaseCategory('S', semantic_types.t,
+                                          pyrsistent.m(it=category.Metavar('X')))
 
     if cat.sub_unify(category.NP) is not None:
         answer = [mk_fwd(generic_S), mk_back(generic_S),
@@ -438,7 +420,6 @@ def typeraise(cat, rules):
                       generic_S, slash.LSLASH, category.NP)),
                   mk_fwd(category.SlashCategory(
                       generic_S, slash.LSLASH, category.NP))]
-        assert(all(not x[0].closed for x in answer))
 
         return answer
 
@@ -450,6 +431,41 @@ def typeraise(cat, rules):
     # self.__graph[fwd].add(cat)
     # self.__graph[back].add(cat)
     # return [(fwd, '>T', (cat,)), (back, '<T', (cat,))]
+
+
+def build_graph(productions):
+    graph = collections.defaultdict(set)
+    for n, productions_n in productions.items():
+        for cat, sources in productions_n.items():
+            for whence, rule in sources:
+                graph[cat].update(whence)
+    return graph
+
+
+def bfs(production_graph):
+    print("\n\nUseful (reachable) inhabited categories from S\n")
+
+    print(f'for constructing S   : {production_graph[category.S]}')
+    # print(f'for constructing S/NP: {self.__graph[category.]}')
+
+    visited = set()
+    queue = [category.S]
+
+    while queue:
+        next = queue.pop(0)
+        assert(isinstance(next, category.BaseCategory) or isinstance(
+            next, category.SlashCategory) or isinstance(next, category.SingletonCategory))
+        if next in visited:
+            continue
+
+        visited.add(next)
+        queue += list(production_graph[next])
+
+    all_visited = [category.alpha_normalized_string(c) for c in visited]
+    all_visited.sort(key=sort_key)
+    # print(all_visited)
+    print('  '.join(all_visited[:100]))
+    print(len(all_visited))
 
 
 """
@@ -609,7 +625,9 @@ class CategoryEnumerator:
 
 def test_lexicon(filename):
 
-    populate_inhabited(filename, 4)
+    productions = populate_inhabited(filename, 5)
+    production_graph = build_graph(productions)
+    bfs(production_graph)
 
     # for c in inhabited[2]:
     #     print(c)

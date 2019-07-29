@@ -483,6 +483,25 @@ def alpha_normalized_string(cat):
     return cat.__str__(f)
 
 
+def strip_attributes(c):
+    if isinstance(c, BaseCategory):
+        return BaseCategory(c.cat, c.semty)
+
+    if isinstance(c, SingletonCategory):
+        return c
+
+    if isinstance(c, Metavar):
+        return c
+
+    if isinstance(c, SlashCategory):
+        return SlashCategory(
+            strip_attributes(c.cod),
+            c.slash,
+            strip_attributes(c.dom))
+
+    assert(False)
+
+
 #####################
 # Simple unit tests #
 #####################
@@ -520,6 +539,7 @@ def test_alpha_str():
     for x in cats:
         xr = x.refresh()
         assert x == xr
+
 
 
 if __name__ == '__main__':
