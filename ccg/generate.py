@@ -97,87 +97,81 @@ def reset(filename):
 categories_seen = set()
 
 
-def populate_inhabited(filename, n):
+def populate_inhabited(filename, max_n):
     global inhabited, hierarchies, categories_seen
-    global SKIP_NONNORMAL, NO_DOUBLE_TYPERAISE
+    global SKIP_NONNORMAL
     SKIP_NONNORMAL = False
-    NO_DOUBLE_TYPERAISE = False
 
-    print(f"inhabited({n}) starting")
+    for n in range(1, max_n + 1):
+        print(f"inhabited({n}) starting")
 
-    if n == 1:
-        reset(filename)
-        inhabited_n = inhabited[1]
-        productions_n = {cat: [([], 'LEX')] for cat in inhabited_n.keys()}
-    else:
-        pickle_file = f'pickles/inhabited.{lexicon_hash}.{n}.out'
-        if USE_PICKLES and os.path.isfile(pickle_file):
-            with open(pickle_file, 'rb') as f:
-                print("...recovering from pickle file...")
-                inhabited_n = pickle.load(f)
+        if n == 1:
+            reset(filename)
+            inhabited_n = inhabited[1]
+            productions_n = {cat: [([], 'LEX')] for cat in inhabited_n.keys()}
         else:
-            inhabited_n = collections.defaultdict(set)
-            productions_n = collections.defaultdict(list)
-            for k in range(1, n):
-                cats_left = hierarchies[k]
-                cats_right = hierarchies[n-k]
-                for cat, rule, whence in forward_applies(cats_left, cats_right):
-                    #print(cat, rule, [str(x) for x in whence])
-                    inhabited_n[cat].add(rule)
-                    productions_n[cat].append((whence, rule))
-                for cat, rule, whence in backward_applies(cats_left, cats_right):
-                    inhabited_n[cat].add(rule)
-                    productions_n[cat].append((whence, rule))
-                for cat, rule, whence in forward_composition1(cats_left, cats_right):
-                    inhabited_n[cat].add(rule)
-                    productions_n[cat].append((whence, rule))
-                for cat, rule, whence in forward_composition2(cats_left, cats_right):
-                    inhabited_n[cat].add(rule)
-                    productions_n[cat].append((whence, rule))
-                for cat, rule, whence in forward_composition3(cats_left, cats_right):
-                    inhabited_n[cat].add(rule)
-                    productions_n[cat].append((whence, rule))
-                for cat, rule, whence in backward_composition1(cats_left, cats_right):
+            pickle_file = f'pickles/inhabited.{lexicon_hash}.{n}.out'
+            if USE_PICKLES and os.path.isfile(pickle_file):
+                with open(pickle_file, 'rb') as f:
+                    print("...recovering from pickle file...")
+                    (inhabited_n, productions_n) = pickle.load(f)
+            else:
+                inhabited_n = collections.defaultdict(set)
+                productions_n = collections.defaultdict(list)
+                for k in range(1, n):
+                    cats_left = hierarchies[k]
+                    cats_right = hierarchies[n-k]
+
+                    def run_rule(rule_fn):
+                        nonlocal cats_left, cats_right
+                        nonlocal inhabited_n, productions_n
+                        for cat, rule, whence in rule_fn(cats_left, cats_right):
+                            #print(cat, rule, [str(x) for x in whence])
+                            inhabited_n[cat].add(rule)
+                            productions_n[cat].append((whence, rule))
+
+                    run_rule(forward_applies)
+                    run_rule(backward_applies)
+                    run_rule(forward_composition1)
+                    run_rule(forward_composition2)
+                    run_rule(forward_composition3)
+                    run_rule(backward_composition1)
+                    run_rule(backwards_cross_compose)
+
+                type_raised = []
+                for cat in inhabited_n.keys():
+                    # if not cat.closed:
+                    #    continue
+                    type_raised += typeraise(cat, [])
+                for cat, rule, whence in type_raised:
                     inhabited_n[cat].add(rule)
                     productions_n[cat].append((whence, rule))
 
-                for cat, rule, whence in backwards_cross_compose(cats_left, cats_right):
-                    inhabited_n[cat].add(rule)
-                    productions_n[cat].append((whence, rule))
+                os.makedirs('pickles', exist_ok=True)
+                with open(pickle_file, 'wb') as f:
+                    pickle.dump((inhabited_n, productions_n), f)
 
-            type_raised = []
-            for cat in inhabited_n.keys():
-                # if not cat.closed:
-                #    continue
-                type_raised += typeraise(cat, [])
-            for cat, rule, whence in type_raised:
-                inhabited_n[cat].add(rule)
-                productions_n[cat].append((whence, rule))
+        inhabited[n] = inhabited_n
+        print(f"inhabited({n}) done. Found {len(inhabited_n)} categories")
 
-            os.makedirs('pickles', exist_ok=True)
-            with open(pickle_file, 'wb') as f:
-                pickle.dump(inhabited_n, f)
+        # What's new?
+        these_categories = set(inhabited_n.keys())
+        new_categories = list(these_categories - categories_seen)
 
-    inhabited[n] = inhabited_n
-    print(f"inhabited({n}) done. Found {len(inhabited_n)} categories")
+        new_categories.sort(key=lambda c: sort_key(str(c)))
 
-    # What's new?
-    these_categories = set(inhabited_n.keys())
-    new_categories = list(these_categories - categories_seen)
-    new_categories.sort(key=lambda c: len(str(c)))
-    print(" new categories include: ")
-    for cat in new_categories[:25]:
-        for operands, rule in productions_n[cat]:
-            print(
-                f"    {cat}    {'  '.join([category.alpha_normalized_string(c) for c in operands])}   {rule}")
-    categories_seen.update(these_categories)
-    # print(pp_info(inhabited_n))
+        print(" new categories include: ")
+        for cat in new_categories[:25]:
+            for operands, rule in productions_n[cat]:
+                print(
+                    f"    {cat}    {'  '.join([category.alpha_normalized_string(c) for c in operands])}   {rule}")
+        categories_seen.update(these_categories)
+        # print(pp_info(inhabited_n))
 
-    hierarchies[n] = make_hierarchy(inhabited_n)
+        hierarchies[n] = make_hierarchy(inhabited_n)
 
 
 def forward_applies(cats_left, cats_right):
-    global hierarchies
     results = []
 
     for cat1 in cats_left.has_slash[slash.RAPPLY].without_rules({'>T'}).all:
@@ -615,8 +609,7 @@ class CategoryEnumerator:
 
 def test_lexicon(filename):
 
-    for n in range(1, 5):
-        populate_inhabited(filename, n)
+    populate_inhabited(filename, 4)
 
     # for c in inhabited[2]:
     #     print(c)
