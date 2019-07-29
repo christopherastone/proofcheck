@@ -20,7 +20,7 @@ class CatSet:
     def all(self):
         if self.__all is None:
             self.__all = list(orig for _, orig, _ in self.__data)
-        return self.__all
+        return [cat.refresh() for cat in self.__all]
 
     @property
     def with_shape(self):
