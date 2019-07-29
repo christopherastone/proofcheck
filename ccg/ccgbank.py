@@ -18,8 +18,8 @@ def process_lexicon(filename, MIN_COUNT=50):
             word = values[0]
             cat = values[1]
             count = int(values[2])
-            if cat == '.':
-                continue
+            # if cat == '.':
+            #    continue
             if count < MIN_COUNT:
                 continue
             cat_dict[cat].append((count, word))
@@ -28,8 +28,26 @@ def process_lexicon(filename, MIN_COUNT=50):
 
 
 def summarize(cat_dict, NUM_WORDS=5, NUM_CATS=300):
+    cat_count_lines = {}
+    cat_count_words = {}
+    for cat, lines in cat_dict.items():
+        cat_count_lines[cat] = len(lines)
+        cat_count_words[cat] = sum(x[0] for x in lines)
+
+    print("\nTop most-frequent categories by lexicon lines")
+    lst = [(n, cat) for cat, n in cat_count_lines.items()]
+    lst.sort(key=lambda x: x[0], reverse=True)
+    for n, cat in lst[:20]:
+        print(f"{n}  {cat}")
+
+    print("\nTop most-frequent categories by times used")
+    lst = [(n, cat) for cat, n in cat_count_words.items()]
+    lst.sort(key=lambda x: x[0], reverse=True)
+    for n, cat in lst[:20]:
+        print(f"{n}  {cat}")
+
     cats = sorted(cat_dict.keys(), key=lambda x: len(x))
-    print(f'{len(cats)} categories.')
+    print(f'\n{len(cats)} categories.')
     for cat in cats[:NUM_CATS]:
         words = cat_dict[cat]
         top_N_words = sorted(words)[:NUM_WORDS]
@@ -45,5 +63,5 @@ if __name__ == '__main__':
         print(f'usage: {sys.argv[0]} <lexicon file>')
         exit(-1)
 
-    cat_dict = process_lexicon(filename)
+    cat_dict = process_lexicon(filename, 1)
     summarize(cat_dict)
