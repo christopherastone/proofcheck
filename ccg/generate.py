@@ -99,9 +99,11 @@ def reset(filename):
 
 categories_seen = set()
 
+DEBUG_SET = set()
+
 
 def populate_inhabited(filename, n):
-    global inhabited, hierarchies, categories_seen
+    global inhabited, hierarchies, categories_seen, DEBUG_SET
     global SKIP_NONNORMAL, NO_DOUBLE_TYPERAISE
     SKIP_NONNORMAL = False
     NO_DOUBLE_TYPERAISE = False
@@ -134,13 +136,14 @@ def populate_inhabited(filename, n):
             for cat, rule, whence in all_backwards_cross_compose(n):
                 inhabited_n[cat].add(rule)
                 productions_n[cat].append((whence, rule))
+                DEBUG_SET.add(cat)
             for k in range(1, n):
                 cats1 = inhabited[k]
                 cats2 = inhabited[n-k]
-                for cat1 in cats1.keys():
+                for cat1, rules1 in cats1.items():
                     cat1 = cat1.refresh()
-                    for cat2 in cats2.keys():
-                        delta = try_binary_rules(cat1, [], cat2, [])
+                    for cat2, rules2 in cats2.items():
+                        delta = try_binary_rules(cat1, rules1, cat2, rules2)
                         for cat, rule, whence in delta:
                             inhabited_n[cat].add(rule)
                             productions_n[cat].append((whence, rule))
@@ -353,36 +356,6 @@ def all_backwards_cross_compose(n):
                     #     f"<Bx  {composition}  -->  {secondary} {primary}")
 
     return results
-
-
-def try_backwards_cross_compose(left, left_rules, right, right_rules):
-    if (isinstance(left, category.SlashCategory) and
-            isinstance(right, category.SlashCategory) and
-            left.slash <= slash.RCROSS and
-            right.slash <= slash.LCROSS):
-
-        # H&B Stipulation p. 467
-        # See comments for forbidden_combination() in rules.py
-        if all(rule.startswith('>T') for rule in left_rules):
-            return []
-
-        # shape is right. Do they match up?
-        sub = left.cod.sub_unify(right.dom)
-        if sub is None:
-            return []
-
-        primary = right.subst(sub)
-        secondary = left.subst(sub)
-        composition = category.SlashCategory(
-            primary.cod,
-            secondary.slash,
-            secondary.dom)
-        rule = '<xB'
-
-        # self.__graph[composition].update([primary, secondary])
-        return [(composition, rule, (secondary, primary))]
-
-    return []
 
 
 def bad_compose(lrule, rrule, dir, compose_order):
@@ -743,7 +716,7 @@ class CategoryEnumerator:
 
 def test_lexicon(filename):
 
-    for n in range(1, 8):
+    for n in range(1, 5):
         populate_inhabited(filename, n)
 
     # for c in inhabited[2]:
