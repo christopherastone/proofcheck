@@ -91,14 +91,15 @@ def reset(filename):
 
     cat_names = [category.alpha_normalized_string(cat)
                  for cat in inhabited1.keys()]
-    cat_names.sort()
-    print(cat_names)
+    cat_names.sort(key=len)
+    print(", ".join(cat_names))
     lexicon_hash = zlib.adler32(";".join(cat_names).encode('utf8'))
     print(lexicon_hash)
 
+categories_seen = set()
 
 def populate_inhabited(filename, n):
-    global inhabited, hierarchies
+    global inhabited, hierarchies, categories_seen
     global SKIP_NONNORMAL, NO_DOUBLE_TYPERAISE
     SKIP_NONNORMAL = False
     NO_DOUBLE_TYPERAISE = False
@@ -147,11 +148,18 @@ def populate_inhabited(filename, n):
 
     inhabited[n] = inhabited_n
     print(f"inhabited({n}) done. Found {len(inhabited_n)} categories")
+
+    # What's new?
+    these_categories = set(inhabited_n.keys())
+    new_categories = list(these_categories - categories_seen)
+    new_categories.sort(key=lambda c: len(str(c)))
+    print(" new categories include: ")
+    for c in new_categories[:10]:
+        print(f"    {c}   {' '.join(inhabited_n[c])}")
+    categories_seen.update(these_categories)
     # print(pp_info(inhabited_n))
 
-    print(f"building hierarchy")
     hierarchies[n] = make_hierarchy(inhabited_n)
-    print(f"done building hierarchy")
 
 
 def all_forward_applies(n):
@@ -723,7 +731,7 @@ class CategoryEnumerator:
 
 def test_lexicon(filename):
 
-    for n in range(1, 5):
+    for n in range(1, 8):
         populate_inhabited(filename, n)
 
     # for c in inhabited[2]:
