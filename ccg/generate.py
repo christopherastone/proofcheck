@@ -207,6 +207,16 @@ def populate_inhabited(filename, max_n):
                     category.alpha_normalized_string(c) for c in whence]
                 f.write(f"{cat} -> {' '.join(whence_s)}  {rule}\n")
 
+    with open('rules.noncircular.out', 'w') as f:
+        for cat in visited:
+            #print(f"rules for category {cat}")
+            for whence, rule in set.union(*[productions[n][cat] for n in range(1, max_n+1)]):
+                if cat in whence:
+                    continue
+                whence_s = [
+                    category.alpha_normalized_string(c) for c in whence]
+                f.write(f"{cat} -> {' '.join(whence_s)}  {rule}\n")
+
     return productions
 
 
