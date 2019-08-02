@@ -32,7 +32,7 @@ STRIP_ATTRIBUTES = True
 
 assert(MAX_COMPOSITION_ORDER >= 1)
 
-USE_CCGBANK_LEXICON = False
+USE_CCGBANK_LEXICON = True
 
 
 slashre = re.compile(r'[/|\\]')
@@ -66,17 +66,17 @@ def reset(filename):
     global inhabited, productions, lexicon_hash
 
     inhabited1 = collections.defaultdict(set)
-    productions1 = collections.defaultdict(list)
+    productions1 = collections.defaultdict(set)
     if USE_CCGBANK_LEXICON:
         cat_dict = ccgbank.process_lexicon(
-            'data/ccgbank_1_1/data/LEX/CCGbank.00-24.lexicon', 50)
-        for s in cat_dict.keys():
+            'data/ccgbank_1_1/data/LEX/CCGbank.00-24.lexicon')
+        for _, s in ccgbank.categories_by_all_words(cat_dict)[:44]:
             cat = catparser.catparser.parse(s)
             if cat is not None:
                 if STRIP_ATTRIBUTES:
                     cat = category.strip_attributes(cat)
                 inhabited1[cat].add('LEX')
-                productions1[cat].append(([], 'LEX'))
+                productions1[cat].add((tuple(), 'LEX'))
             else:
                 print("oops: ", s)
     else:
@@ -87,7 +87,7 @@ def reset(filename):
                 if STRIP_ATTRIBUTES:
                     cat = category.strip_attributes(cat)
                 inhabited1[cat].add('LEX')
-                productions1[cat].append(([], 'LEX'))
+                productions1[cat].add((tuple(), 'LEX'))
 
     if DO_TYPERAISE:
         type_raised = []
@@ -97,7 +97,7 @@ def reset(filename):
             type_raised += typeraise(cat, [])
         for cat, rule, whence in type_raised:
             inhabited1[cat].add(rule)
-            productions1[cat].append((whence, rule))
+            productions1[cat].add((tuple(whence), rule))
 
     inhabited = {1: inhabited1}
     productions = {1: productions1}
@@ -131,7 +131,7 @@ def populate_inhabited(filename, max_n):
                     (inhabited_n, productions_n) = pickle.load(f)
             else:
                 inhabited_n = collections.defaultdict(set)
-                productions_n = collections.defaultdict(list)
+                productions_n = collections.defaultdict(set)
                 for k in range(1, n):
                     cats_left = hierarchies[k]
                     cats_right = hierarchies[n-k]
@@ -143,7 +143,7 @@ def populate_inhabited(filename, max_n):
                         for cat, rule, whence in rule_fn(cats_left, cats_right):
                             #print(n, cat, rule, [str(x) for x in whence])
                             inhabited_n[cat].add(rule)
-                            productions_n[cat].append((whence, rule))
+                            productions_n[cat].add((tuple(whence), rule))
 
                     run_rule(forward_applies)
                     run_rule(backward_applies)
@@ -160,7 +160,7 @@ def populate_inhabited(filename, max_n):
                     type_raised += typeraise(cat, [])
                 for cat, rule, whence in type_raised:
                     inhabited_n[cat].add(rule)
-                    productions_n[cat].append((whence, rule))
+                    productions_n[cat].add((tuple(whence), rule))
 
                 os.makedirs('pickles', exist_ok=True)
                 with open(pickle_file, 'wb') as f:
@@ -197,7 +197,15 @@ def populate_inhabited(filename, max_n):
         hierarchies[n] = make_hierarchy(inhabited_n)
 
         production_graph = build_graph(productions)
-        bfs(production_graph)
+        visited = bfs(production_graph)
+
+    with open('rules.out', 'w') as f:
+        for cat in visited:
+            #print(f"rules for category {cat}")
+            for whence, rule in set.union(*[productions[n][cat] for n in range(1, max_n+1)]):
+                whence_s = [
+                    category.alpha_normalized_string(c) for c in whence]
+                f.write(f"{cat} -> {' '.join(whence_s)}  {rule}\n")
 
     return productions
 
@@ -524,10 +532,12 @@ def bfs(production_graph):
     print('   ', '  '.join(all_visited[:100]))
     print('   ', len(all_visited))
 
+    return visited
+
 
 def test_lexicon(filename):
 
-    productions = populate_inhabited(filename, 9)
+    productions = populate_inhabited(filename, 10)
 
     # for c in inhabited[2]:
     #     print(c)

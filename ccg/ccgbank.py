@@ -7,7 +7,7 @@ import catparser
 import collections
 import sys
 
-NUM_WORDS = 5
+NUM_WORDS = 8
 NUM_CATS = 50
 
 
@@ -60,6 +60,14 @@ if __name__ == '__main__':
     all_cats = sorted(cat_dict.keys(), key=lambda x: len(x))
     print(f'\n{len(all_cats)} categories.')
     for _, cat in categories_by_all_words(cat_dict)[:NUM_CATS]:
+        cat_dict[cat].sort(reverse=True)
         words = [x[1] for x in cat_dict[cat]]
-        top_words = sorted(words)[:NUM_WORDS]
+        top_words = words[:NUM_WORDS]
         print('\t'.join([cat+'\t'] + top_words))
+
+    with open('lexicon.out', 'w') as f:
+        for _, cat in categories_by_all_words(cat_dict):
+            cat_dict[cat].sort(reverse=True)
+            words = [x[1] for x in cat_dict[cat]]
+            top_words = words[:100]
+            f.write('\t'.join([cat+'\t'] + top_words) + "\n")
