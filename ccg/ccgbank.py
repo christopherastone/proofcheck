@@ -7,8 +7,11 @@ import catparser
 import collections
 import sys
 
+NUM_WORDS = 5
+NUM_CATS = 50
 
-def process_lexicon(filename, MIN_COUNT=50):
+
+def process_lexicon(filename):
     print(f'starting read for {filename}')
     cat_dict = collections.defaultdict(list)
     with open(filename, 'r') as file:
@@ -20,38 +23,22 @@ def process_lexicon(filename, MIN_COUNT=50):
             count = int(values[2])
             # if cat == '.':
             #    continue
-            if count < MIN_COUNT:
-                continue
             cat_dict[cat].append((count, word))
     print(f'done.')
     return cat_dict
 
 
-def summarize(cat_dict, NUM_WORDS=5, NUM_CATS=300):
-    cat_count_lines = {}
-    cat_count_words = {}
-    for cat, lines in cat_dict.items():
-        cat_count_lines[cat] = len(lines)
-        cat_count_words[cat] = sum(x[0] for x in lines)
+def categories_by_distinct_words(cat_dict):
+    lst = [(len(lines), cat) for cat, lines in cat_dict.items()]
+    lst.sort(reverse=True)
+    return lst
 
-    print("\nTop most-frequent categories by lexicon lines")
-    lst = [(n, cat) for cat, n in cat_count_lines.items()]
-    lst.sort(key=lambda x: x[0], reverse=True)
-    for n, cat in lst[:20]:
-        print(f"{n}  {cat}")
 
-    print("\nTop most-frequent categories by times used")
-    lst = [(n, cat) for cat, n in cat_count_words.items()]
-    lst.sort(key=lambda x: x[0], reverse=True)
-    for n, cat in lst[:20]:
-        print(f"{n}  {cat}")
-
-    cats = sorted(cat_dict.keys(), key=lambda x: len(x))
-    print(f'\n{len(cats)} categories.')
-    for cat in cats[:NUM_CATS]:
-        words = cat_dict[cat]
-        top_N_words = sorted(words)[:NUM_WORDS]
-        print('\t'.join([cat] + [w for _, w in top_N_words]))
+def categories_by_all_words(cat_dict):
+    # Recall that lines will be a list of (count, word) pairs
+    lst = [(sum(x[0] for x in lines), cat) for cat, lines in cat_dict.items()]
+    lst.sort(reverse=True)
+    return lst
 
 
 if __name__ == '__main__':
@@ -63,5 +50,16 @@ if __name__ == '__main__':
         print(f'usage: {sys.argv[0]} <lexicon file>')
         exit(-1)
 
-    cat_dict = process_lexicon(filename, 1)
-    summarize(cat_dict)
+    cat_dict = process_lexicon(filename)
+
+    print("\nTop most-frequent categories by distinct words")
+    for n, cat in categories_by_distinct_words(cat_dict)[:20]:
+        print(f"{n}  {cat}")
+
+    print(f"\nTop {NUM_WORDS} most frequent words in top {NUM_CATS} categories")
+    all_cats = sorted(cat_dict.keys(), key=lambda x: len(x))
+    print(f'\n{len(all_cats)} categories.')
+    for _, cat in categories_by_all_words(cat_dict)[:NUM_CATS]:
+        words = [x[1] for x in cat_dict[cat]]
+        top_words = sorted(words)[:NUM_WORDS]
+        print('\t'.join([cat+'\t'] + top_words))
