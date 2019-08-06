@@ -32,7 +32,9 @@ STRIP_ATTRIBUTES = True
 
 assert(MAX_COMPOSITION_ORDER >= 1)
 
-USE_CCGBANK_LEXICON = True
+USE_CCGBANK_LEXICON = False
+USE_CATEGORIES_MOD = True
+MAX_CATEGORIES_MOD_LINES = 100
 
 
 slashre = re.compile(r'[/|\\]')
@@ -67,7 +69,23 @@ def reset(filename):
 
     inhabited1 = collections.defaultdict(set)
     productions1 = collections.defaultdict(set)
-    if USE_CCGBANK_LEXICON:
+    if USE_CATEGORIES_MOD:
+        with open('categories.mod.out', 'r') as f:
+            linecount = 0
+            for line in f:
+                if linecount >= MAX_CATEGORIES_MOD_LINES:
+                    break
+                linecount += 1
+                cat = catparser.catparser.parse(line)
+                if cat is not None:
+                    if STRIP_ATTRIBUTES:
+                        cat = category.strip_attributes(cat)
+                    inhabited1[cat].add('LEX')
+                    productions1[cat].add((tuple(), 'LEX'))
+                else:
+                    print("oops: ", line)
+
+    elif USE_CCGBANK_LEXICON:
         cat_dict = ccgbank.process_lexicon(
             'data/ccgbank_1_1/data/LEX/CCGbank.00-24.lexicon')
         for _, s in ccgbank.categories_by_all_words(cat_dict)[:44]:
@@ -137,7 +155,7 @@ def populate_inhabited(filename, max_n):
                     cats_right = hierarchies[n-k]
 
                     def run_rule(rule_fn):
-                        #print(f"run rule {rule_fn.__name__} for {k} and {n-k}")
+                            #print(f"run rule {rule_fn.__name__} for {k} and {n-k}")
                         nonlocal cats_left, cats_right
                         nonlocal inhabited_n, productions_n
                         for cat, rule, whence in rule_fn(cats_left, cats_right):
@@ -547,7 +565,7 @@ def bfs(production_graph):
 
 def test_lexicon(filename):
 
-    productions = populate_inhabited(filename, 10)
+    productions = populate_inhabited(filename, 12)
 
     # for c in inhabited[2]:
     #     print(c)

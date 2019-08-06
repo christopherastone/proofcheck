@@ -71,3 +71,7 @@ if __name__ == '__main__':
             words = [x[1] for x in cat_dict[cat]]
             top_words = words[:100]
             f.write('\t'.join([cat+'\t'] + top_words) + "\n")
+
+    with open('categories.out', 'w') as f:
+        for _, cat in categories_by_all_words(cat_dict):
+            f.write(cat + "\n")
