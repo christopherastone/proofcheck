@@ -56,7 +56,8 @@ if __name__ == '__main__':
     for n, cat in categories_by_distinct_words(cat_dict)[:20]:
         print(f"{n}  {cat}")
 
-    print(f"\nTop {NUM_WORDS} most frequent words in top {NUM_CATS} categories")
+    print(f"\nTop {NUM_WORDS} most frequent words"
+          f" in top {NUM_CATS} categories")
     all_cats = sorted(cat_dict.keys(), key=lambda x: len(x))
     print(f'\n{len(all_cats)} categories.')
     for _, cat in categories_by_all_words(cat_dict)[:NUM_CATS]:
